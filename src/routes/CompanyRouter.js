@@ -1,5 +1,5 @@
 import { Router } from "express";
-import companyController from "../controllers/CompanyCotroller.js";
+import companyController from "../controllers/CompanyController.js";
 
 class CompanyRouter {
   constructor() {
