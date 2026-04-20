@@ -1,7 +1,7 @@
+import { Prisma } from "@prisma/client";
 import companyService from "../services/CompanyService.js";
-
 class CompanyCotroller {
-  create = async (req, res) => {
+  create = async (req, res, next) => {
     try {
       const { legalName, tradeName, taxId, email, phone } = req.body;
 
@@ -15,7 +15,7 @@ class CompanyCotroller {
 
       return res.status(201).json(newCompany);
     } catch (error) {
-      return res.status(400).json({ error: error.message });
+      next(error);
     }
   };
 }
