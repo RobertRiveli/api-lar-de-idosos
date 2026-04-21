@@ -1,11 +1,13 @@
 import express from "express";
 import companyRouter from "./routes/CompanyRouter.js";
+import { errorHandler } from "./middlewares/errorHandler.js";
 
 class App {
   constructor() {
     this.app = express();
     this.middlewares();
     this.routes();
+    this.errorMiddleware();
   }
 
   middlewares() {
@@ -15,6 +17,10 @@ class App {
 
   routes() {
     this.app.use("/companies", companyRouter);
+  }
+
+  errorMiddleware() {
+    this.app.use(errorHandler);
   }
 }
 
