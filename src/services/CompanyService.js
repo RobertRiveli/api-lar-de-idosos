@@ -1,4 +1,4 @@
-import e from "express";
+import MailService from "./MailService.js";
 import { prisma } from "../database/prisma.js";
 import ConflictError from "../errors/ConflictError.js";
 import ValidationError from "../errors/ValidationError.js";
@@ -6,11 +6,32 @@ import CompanyRepository from "../repositories/CompanyRepository.js";
 import companySchema from "../validators/companyValidator.js";
 
 class CompanyService {
+  constructor() {
+    this.emailService = new MailService();
+  }
+
   async resgisterCompany(companyData) {
     await this.validateCompanyData(companyData);
     await this.checkConflict(companyData);
 
-    return await CompanyRepository.create(companyData);
+    const newCompany = await CompanyRepository.create(companyData);
+
+    try {
+      await this.emailService.sendEmail(
+        companyData.email,
+        "Bem-vindo!",
+        `Olá!
+        Sua empresa foi cadastrada com sucesso.
+        Para acessar o sistema, crie sua senha no link abaixo:
+        LINK EM BREVE
+
+        Esse link expira em 1 hora.`,
+      );
+    } catch (e) {
+      console.error("Erro ao enviar email:", e);
+    }
+
+    return newCompany;
   }
 
   async checkConflict(companyData) {
