@@ -1,5 +1,6 @@
 import express from "express";
 import companyRouter from "./routes/CompanyRouter.js";
+import userRouter from "./routes/UserRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 
 class App {
@@ -17,6 +18,7 @@ class App {
 
   routes() {
     this.app.use("/companies", companyRouter);
+    this.app.use("/users", userRouter);
   }
 
   errorMiddleware() {
