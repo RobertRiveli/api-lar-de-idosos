@@ -1,7 +1,7 @@
 import express from "express";
 import companyRouter from "./routes/CompanyRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
-
+import cors from "cors";
 class App {
   constructor() {
     this.app = express();
@@ -11,6 +11,7 @@ class App {
   }
 
   middlewares() {
+    this.app.use(cors());
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
   }
