@@ -1,5 +1,6 @@
 import { Router } from "express";
 import companyController from "../controllers/CompanyController.js";
+import { sanitizeCompanyData } from "../middlewares/sanitizeCompanyData.js";
 
 class CompanyRouter {
   constructor() {
@@ -8,7 +9,7 @@ class CompanyRouter {
   }
 
   setupRoutes() {
-    this.router.post("/", companyController.create);
+    this.router.post("/", sanitizeCompanyData, companyController.create);
   }
 }
 
