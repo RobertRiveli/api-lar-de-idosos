@@ -12,3 +12,15 @@ export const sanitizeCompanyData = (req, res, next) => {
 
   next();
 };
+
+export const sanitizeUserData = (req, res, next) => {
+  const { phone, email } = req.body;
+
+  req.body = {
+    ...req.body,
+    ...(phone && { phone: cleanNumberFields(phone) }),
+    ...(email && { email: email.toLowerCase().trim() }),
+  };
+
+  next();
+};
