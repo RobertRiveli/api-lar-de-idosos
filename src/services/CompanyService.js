@@ -4,6 +4,7 @@ import ConflictError from "../errors/ConflictError.js";
 import ValidationError from "../errors/ValidationError.js";
 import CompanyRepository from "../repositories/CompanyRepository.js";
 import companySchema from "../validators/companyValidator.js";
+import { isCNPJ } from "validation-br";
 
 class CompanyService {
   constructor() {
@@ -74,6 +75,14 @@ class CompanyService {
       const field = Object.keys(errorMessage)[0];
 
       throw new ValidationError(field, errorMessage[field]);
+    }
+
+    this.validateTaxId(companyData.taxId);
+  }
+
+  validateTaxId(taxId) {
+    if (!isCNPJ(taxId)) {
+      throw new ValidationError("taxId", "CNPJ inválido");
     }
   }
 }
