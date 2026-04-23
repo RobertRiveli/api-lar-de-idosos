@@ -1,4 +1,3 @@
-import { prisma } from "../database/prisma.js";
 import UserService from "../services/UserService.js";
 
 class UserController {
@@ -6,8 +5,12 @@ class UserController {
     try {
       const userData = req.body;
 
-      await UserService.registerUser(userData);
-      return res.status(201).json("Usuário criado com sucesso");
+      const data = await UserService.registerUser(userData);
+      return res.status(201).json({
+        status: true,
+        message: "Usuário criado com sucesso",
+        newUser: data,
+      });
     } catch (error) {
       console.log(error);
       next(error);

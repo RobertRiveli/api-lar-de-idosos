@@ -1,9 +1,9 @@
-import e from "express";
 import bcrypt from "bcrypt";
 import userSchema from "../validators/userValidation.js";
 import { prisma } from "../database/prisma.js";
 import ConflictError from "../errors/ConflictError.js";
 import ValidationError from "../errors/ValidationError.js";
+import { validatePhone } from "../utils/phoneValidator.js";
 
 class UserService {
   registerUser = async (userData) => {
@@ -21,7 +21,14 @@ class UserService {
       },
     });
 
-    return true;
+    const data = {
+      fullName: newUser.fullName,
+      email: newUser.email,
+      phone: newUser.phone,
+      createdAt: newUser.createdAt,
+    };
+
+    return data;
   };
 
   checkConflict = async (userData) => {
@@ -66,7 +73,17 @@ class UserService {
 
       throw new ValidationError(field, errorMessage[field]);
     }
+
+    this.validatePhone(userData.phone);
   };
+
+  validatePhone(phone) {
+    if (!phone) return;
+
+    if (!validatePhone(phone)) {
+      throw new ValidationError("phone", "Telefone inválido");
+    }
+  }
 }
 
 export default new UserService();
