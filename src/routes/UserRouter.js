@@ -1,5 +1,6 @@
 import { Router } from "express";
 import UserController from "../controllers/UserController.js";
+import { sanitizeUserData } from "../middlewares/sanitizeCompanyData.js";
 class UserRouter {
   constructor() {
     this.router = Router();
@@ -7,7 +8,7 @@ class UserRouter {
   }
 
   setupRoutes() {
-    this.router.post("/", UserController.create);
+    this.router.post("/", sanitizeUserData, UserController.create);
   }
 }
 
