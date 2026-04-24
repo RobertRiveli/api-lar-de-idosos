@@ -12,7 +12,16 @@ class UserController {
         newUser: data,
       });
     } catch (error) {
-      console.log(error);
+      next(error);
+    }
+  };
+
+  profile = async (req, res, next) => {
+    try {
+      const user = await UserService.getProfile(req.user.userId);
+
+      return res.status(200).json(user);
+    } catch (error) {
       next(error);
     }
   };

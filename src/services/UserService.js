@@ -4,6 +4,7 @@ import { prisma } from "../database/prisma.js";
 import ConflictError from "../errors/ConflictError.js";
 import ValidationError from "../errors/ValidationError.js";
 import { validatePhone } from "../utils/phoneValidator.js";
+import UserRepository from "../repositories/UserRepository.js";
 
 class UserService {
   registerUser = async (userData) => {
@@ -29,6 +30,37 @@ class UserService {
     };
 
     return data;
+  };
+
+  getProfile = async (userId) => {
+    const user = await UserRepository.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        cpf: true,
+        createdAt: true,
+        role: true,
+        company: {
+          select: {
+            id: true,
+            legalName: true,
+            tradeName: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new ValidationError("id", "Usuário não encontrado");
+    }
+
+    return user;
   };
 
   checkConflict = async (userData) => {

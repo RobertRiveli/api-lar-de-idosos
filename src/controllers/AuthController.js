@@ -1,5 +1,4 @@
 import AuthService from "../services/AuthService.js";
-import ValidationError from "../errors/ValidationError.js";
 
 class AuthController {
   login = async (req, res, next) => {

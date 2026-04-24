@@ -1,6 +1,8 @@
 import { Router } from "express";
 import UserController from "../controllers/UserController.js";
 import { sanitizeUserData } from "../middlewares/sanitizeCompanyData.js";
+import { authMiddleware } from "../middlewares/authMiddleware.js";
+
 class UserRouter {
   constructor() {
     this.router = Router();
@@ -9,6 +11,7 @@ class UserRouter {
 
   setupRoutes() {
     this.router.post("/", sanitizeUserData, UserController.create);
+    this.router.get("/profile", authMiddleware, UserController.profile);
   }
 }
 
