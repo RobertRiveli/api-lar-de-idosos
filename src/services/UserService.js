@@ -4,6 +4,7 @@ import { prisma } from "../database/prisma.js";
 import ConflictError from "../errors/ConflictError.js";
 import ValidationError from "../errors/ValidationError.js";
 import { validatePhone } from "../utils/phoneValidator.js";
+import UserRepository from "../repositories/UserRepository.js";
 
 class UserService {
   registerUser = async (userData) => {
@@ -31,10 +32,45 @@ class UserService {
     return data;
   };
 
+  getProfile = async (userId) => {
+    const user = await UserRepository.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        cpf: true,
+        createdAt: true,
+        role: true,
+        company: {
+          select: {
+            id: true,
+            legalName: true,
+            tradeName: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new ValidationError("id", "Usuário não encontrado");
+    }
+
+    return user;
+  };
+
   checkConflict = async (userData) => {
     const duplicate = await prisma.user.findFirst({
       where: {
-        OR: [{ email: userData.email }, { phone: userData.phone }],
+        OR: [
+          { email: userData.email },
+          { phone: userData.phone },
+          { cpf: userData.cpf },
+        ],
       },
     });
 
@@ -42,6 +78,7 @@ class UserService {
       const messages = {
         email: "Email já cadastrado",
         phone: "Telefone já cadastrado",
+        cpf: "CPF já cadastrado",
       };
 
       const field = Object.keys(messages).find((key) => {
@@ -59,19 +96,14 @@ class UserService {
   validateUserData = async (userData) => {
     const validation = userSchema.safeParse(userData);
     if (!validation.success) {
-      const errorMessage = validation.error._zod.def.reduce((acc, err) => {
-        const field = err.path;
-        acc[field] = err.message;
-        return acc;
-      }, {});
-
-      const field = Object.keys(errorMessage)[0];
+      const firstIssue = validation.error.issues[0];
+      const field = firstIssue.path[0];
 
       console.log(
-        `Validation failed on field: ${field} with message: ${errorMessage[field]}`,
+        `Validation failed on field: ${field} with message: ${firstIssue.message}`,
       );
 
-      throw new ValidationError(field, errorMessage[field]);
+      throw new ValidationError(field, firstIssue.message);
     }
 
     this.validatePhone(userData.phone);

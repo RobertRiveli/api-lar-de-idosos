@@ -34,6 +34,7 @@ class CompanyService {
           email: admin.email,
           phone: admin.phone,
           companyId: newCompany.id,
+          cpf: admin.cpf,
           role: "admin",
           passwordHash,
         },
