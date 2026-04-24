@@ -1,5 +1,5 @@
 import z from "zod";
-import { emailSchema, phoneSchema } from "./common.js";
+import { passwordSchema, emailSchema, phoneSchema } from "./common.js";
 
 const userSchema = z.object({
   fullName: z
@@ -8,10 +8,12 @@ const userSchema = z.object({
     .max(160),
   email: emailSchema,
   phone: phoneSchema,
-  password: z
+  cpf: z
     .string()
-    .min(8, "A senha deve ter pelo menos 8 caracteres")
-    .max(128, "A senha deve ter no máximo 128 caracteres"),
+    .length(11, "O CPF deve ter 11 caracteres")
+    .regex(/^\d+$/, "O CPF deve conter apenas números"),
+
+  password: passwordSchema,
 });
 
 export default userSchema;

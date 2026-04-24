@@ -29,6 +29,6 @@ export const errorHandler = (error, req, res, next) => {
   }
 
   console.error(`[${response.errorType}] - ${req.method} ${req.url}`);
-
+  console.log(error);
   return res.status(statusCode).json(response);
 };

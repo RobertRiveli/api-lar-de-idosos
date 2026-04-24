@@ -34,7 +34,11 @@ class UserService {
   checkConflict = async (userData) => {
     const duplicate = await prisma.user.findFirst({
       where: {
-        OR: [{ email: userData.email }, { phone: userData.phone }],
+        OR: [
+          { email: userData.email },
+          { phone: userData.phone },
+          { cpf: userData.cpf },
+        ],
       },
     });
 
@@ -42,6 +46,7 @@ class UserService {
       const messages = {
         email: "Email já cadastrado",
         phone: "Telefone já cadastrado",
+        cpf: "CPF já cadastrado",
       };
 
       const field = Object.keys(messages).find((key) => {
