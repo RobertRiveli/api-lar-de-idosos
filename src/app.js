@@ -4,6 +4,7 @@ import userRouter from "./routes/UserRouter.js";
 import authRouter from "./routes/AuthRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cors from "cors";
+import TestController from "./controllers/TestController.js";
 class App {
   constructor() {
     this.app = express();
@@ -22,6 +23,7 @@ class App {
     this.app.use("/companies", companyRouter);
     this.app.use("/users", userRouter);
     this.app.use("/auth", authRouter);
+    this.app.use("/test", TestController.test);
   }
 
   errorMiddleware() {
