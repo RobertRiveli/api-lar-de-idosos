@@ -3,9 +3,10 @@ import UserService from "../services/UserService.js";
 class UserController {
   create = async (req, res, next) => {
     try {
-      const userData = req.body;
+      const userRole = req.user.role;
 
-      const data = await UserService.registerUser(userData);
+      const userData = req.body;
+      const data = await UserService.registerUser(userData, userRole);
       return res.status(201).json({
         success: true,
         message: "Usuário criado com sucesso",

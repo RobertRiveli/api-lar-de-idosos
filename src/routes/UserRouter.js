@@ -10,7 +10,12 @@ class UserRouter {
   }
 
   setupRoutes() {
-    this.router.post("/", sanitizeUserData, UserController.create);
+    this.router.post(
+      "/",
+      authMiddleware,
+      sanitizeUserData,
+      UserController.create,
+    );
     this.router.get("/profile", authMiddleware, UserController.profile);
   }
 }

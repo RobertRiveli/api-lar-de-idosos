@@ -7,7 +7,20 @@ import { validatePhone } from "../utils/phoneValidator.js";
 import UserRepository from "../repositories/UserRepository.js";
 
 class UserService {
-  registerUser = async (userData) => {
+  registerUser = async (userData, userRole) => {
+    if (userRole !== "admin") {
+      throw new ValidationError(
+        "role",
+        "Apenas administradores podem adicionar usuários",
+      );
+    }
+
+    const role = userData.role || "caregiver";
+
+    if (!["admin", "caregiver"].includes(role)) {
+      throw new ValidationError("role", "Cargo inválido");
+    }
+
     await this.validateUserData(userData);
     await this.checkConflict(userData);
 
@@ -15,17 +28,17 @@ class UserService {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const newUser = await prisma.user.create({
-      data: {
-        ...userDataWithoutPassword,
-        passwordHash,
-      },
+    const newUser = await UserRepository.create({
+      ...userDataWithoutPassword,
+      role,
+      passwordHash,
     });
 
     const data = {
       fullName: newUser.fullName,
       email: newUser.email,
       phone: newUser.phone,
+      role: newUser.role,
       createdAt: newUser.createdAt,
     };
 
