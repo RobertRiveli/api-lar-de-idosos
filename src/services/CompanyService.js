@@ -6,6 +6,9 @@ import CompanyRepository from "../repositories/CompanyRepository.js";
 import companySchema from "../validators/companyValidator.js";
 import { isCNPJ } from "validation-br";
 import { validatePhone } from "../utils/phoneValidator.js";
+import UserRepository from "../repositories/UserRepository.js";
+import userSchema from "../validators/userValidation.js";
+import bcrypt from "bcrypt";
 
 class CompanyService {
   constructor() {
@@ -13,27 +16,45 @@ class CompanyService {
   }
 
   async resgisterCompany(companyData) {
-    await this.validateCompanyData(companyData);
-    await this.checkConflict(companyData);
+    const { admin, ...companyInfo } = companyData;
 
-    const newCompany = await CompanyRepository.create(companyData);
+    this.validateCompanyData(companyInfo);
+    this.validateAdminData(admin);
+
+    await this.checkConflict(companyInfo);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const newCompany = await CompanyRepository.create(companyInfo, tx);
+
+      const passwordHash = await bcrypt.hash(admin.password, 10);
+
+      const newAdmin = await UserRepository.create(
+        {
+          fullName: admin.fullName,
+          email: admin.email,
+          phone: admin.phone,
+          companyId: newCompany.id,
+          role: "admin",
+          passwordHash,
+        },
+        tx,
+      );
+
+      return { newCompany, newAdmin };
+    });
 
     try {
       await this.emailService.sendEmail(
         companyData.email,
         "Bem-vindo!",
         `Olá!
-        Sua empresa foi cadastrada com sucesso.
-        Para acessar o sistema, crie sua senha no link abaixo:
-        LINK EM BREVE
-
-        Esse link expira em 1 hora.`,
+        Sua empresa foi cadastrada com sucesso.`,
       );
     } catch (e) {
       console.error("Erro ao enviar email:", e);
     }
 
-    return newCompany;
+    return result.newCompany;
   }
 
   async checkConflict(companyData) {
@@ -64,22 +85,29 @@ class CompanyService {
     }
   }
 
-  async validateCompanyData(companyData) {
+  validateCompanyData(companyData) {
     const validation = companySchema.safeParse(companyData);
 
     if (!validation.success) {
-      const errorMessage = validation.error._zod.def.reduce((acc, err) => {
-        const field = err.path;
-        acc[field] = err.message;
-        return acc;
-      }, {});
-      const field = Object.keys(errorMessage)[0];
+      const firstIssue = validation.error.issues[0];
+      const field = firstIssue.path[0];
 
-      throw new ValidationError(field, errorMessage[field]);
+      throw new ValidationError(field, firstIssue.message);
     }
 
     this.validateTaxId(companyData.taxId);
     this.validatePhone(companyData.phone);
+  }
+
+  validateAdminData(adminData) {
+    const validation = userSchema.safeParse(adminData);
+
+    if (!validation.success) {
+      const firstIssue = validation.error.issues[0];
+      const field = firstIssue.path[0];
+
+      throw new ValidationError(field, firstIssue.message);
+    }
   }
 
   validateTaxId(taxId) {
