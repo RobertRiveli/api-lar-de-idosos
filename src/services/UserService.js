@@ -64,19 +64,14 @@ class UserService {
   validateUserData = async (userData) => {
     const validation = userSchema.safeParse(userData);
     if (!validation.success) {
-      const errorMessage = validation.error._zod.def.reduce((acc, err) => {
-        const field = err.path;
-        acc[field] = err.message;
-        return acc;
-      }, {});
-
-      const field = Object.keys(errorMessage)[0];
+      const firstIssue = validation.error.issues[0];
+      const field = firstIssue.path[0];
 
       console.log(
-        `Validation failed on field: ${field} with message: ${errorMessage[field]}`,
+        `Validation failed on field: ${field} with message: ${firstIssue.message}`,
       );
 
-      throw new ValidationError(field, errorMessage[field]);
+      throw new ValidationError(field, firstIssue.message);
     }
 
     this.validatePhone(userData.phone);
