@@ -7,7 +7,7 @@ class UserController {
 
       const data = await UserService.registerUser(userData);
       return res.status(201).json({
-        status: true,
+        success: true,
         message: "Usuário criado com sucesso",
         newUser: data,
       });
@@ -20,7 +20,7 @@ class UserController {
     try {
       const user = await UserService.getProfile(req.user.userId);
 
-      return res.status(200).json(user);
+      return res.status(200).json({ success: true, user });
     } catch (error) {
       next(error);
     }
