@@ -2,13 +2,15 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import ValidationError from "../errors/ValidationError.js";
 import AuthRepository from "../repositories/AuthRepository.js";
+import loginSchema from "../validators/loginValidation.js";
 
 class AuthService {
   async login(loginData) {
+    this.validateLoginData(loginData);
+
     const { cpf, password } = loginData;
 
     const user = await AuthRepository.findUserByCpf(cpf);
-
     if (!user) {
       throw new ValidationError("cpf", "Usuário não encontrado");
     }
@@ -28,7 +30,7 @@ class AuthService {
     }
 
     const token = jwt.sign(
-      { id: user.id, company: user.company.id, role: user.role },
+      { userId: user.id, companyId: user.company.id, role: user.role },
 
       process.env.JWT_SECRET,
       {
@@ -40,7 +42,7 @@ class AuthService {
       token,
       user: {
         email: user.email,
-        name: user.name,
+        fullName: user.fullName,
         role: user.role,
       },
     };
