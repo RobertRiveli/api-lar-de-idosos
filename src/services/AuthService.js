@@ -49,6 +49,10 @@ class AuthService {
   }
 
   validateLoginData(loginData) {
+    if (!loginData.cpf) {
+      throw new ValidationError("cpf", "CPF é obrigatório");
+    }
+
     const validation = loginSchema.safeParse(loginData);
 
     if (!validation.success) {

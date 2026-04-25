@@ -7,7 +7,7 @@ import { validatePhone } from "../utils/phoneValidator.js";
 import UserRepository from "../repositories/UserRepository.js";
 
 class UserService {
-  registerUser = async (userData, userRole) => {
+  registerUser = async (userData, userRole, companyId) => {
     if (userRole !== "admin") {
       throw new ValidationError(
         "role",
@@ -30,6 +30,7 @@ class UserService {
 
     const newUser = await UserRepository.create({
       ...userDataWithoutPassword,
+      companyId,
       role,
       passwordHash,
     });
