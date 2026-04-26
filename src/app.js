@@ -2,6 +2,7 @@ import express from "express";
 import companyRouter from "./routes/CompanyRouter.js";
 import userRouter from "./routes/UserRouter.js";
 import authRouter from "./routes/AuthRouter.js";
+import ResidentRouter from "./routes/ResidentRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cors from "cors";
 class App {
@@ -22,6 +23,7 @@ class App {
     this.app.use("/companies", companyRouter);
     this.app.use("/users", userRouter);
     this.app.use("/auth", authRouter);
+    this.app.use("/residents", ResidentRouter);
   }
 
   errorMiddleware() {

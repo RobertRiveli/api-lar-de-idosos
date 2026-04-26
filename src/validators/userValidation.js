@@ -1,11 +1,14 @@
 import z from "zod";
-import { passwordSchema, emailSchema, phoneSchema } from "./common.js";
+import {
+  passwordSchema,
+  emailSchema,
+  phoneSchema,
+  fullNameSchema,
+} from "./common.js";
 
 const userSchema = z.object({
-  fullName: z
-    .string()
-    .min(3, "O nome completo deve ter pelo menos 3 caracteres")
-    .max(160),
+  fullName: fullNameSchema,
+
   email: emailSchema,
   phone: phoneSchema,
   cpf: z

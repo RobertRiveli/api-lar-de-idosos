@@ -42,3 +42,13 @@ export const sanitizeAuthData = (req, res, next) => {
 
   next();
 };
+
+export const sanitizeResidentData = (req, res, next) => {
+  const { cpf } = req.body;
+  req.body = {
+    ...req.body,
+    ...(cpf && { cpf: cleanNumberFields(cpf) }),
+  };
+
+  next();
+};
