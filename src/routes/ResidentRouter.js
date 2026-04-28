@@ -1,7 +1,7 @@
 import { Router } from "express";
 import ResidentController from "../controllers/ResidentController.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
-import { sanitizeResidentData } from "../middlewares/sanitizeCompanyData.js";
+import { sanitizeResidentData } from "../middlewares/sanitizeData.js";
 
 class ResidentRouter {
   constructor() {
