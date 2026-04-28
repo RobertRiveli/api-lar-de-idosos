@@ -10,6 +10,7 @@ class MedicationRouter {
 
   setupRoutes() {
     this.router.post("/", authMiddleware, MedicationController.create);
+    this.router.get("/", authMiddleware, MedicationController.list);
   }
 }
 

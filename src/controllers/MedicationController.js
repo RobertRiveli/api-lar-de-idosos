@@ -21,6 +21,18 @@ class MedicationController {
       next(error);
     }
   };
+
+  list = async (req, res, next) => {
+    try {
+      const { companyId } = req.user;
+
+      const medications = await MedicationService.list(companyId);
+
+      res.status(200).json({ success: true, medications });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default new MedicationController();

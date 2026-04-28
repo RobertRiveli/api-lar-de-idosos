@@ -20,6 +20,10 @@ class MedicationService {
     return newMedication;
   }
 
+  async list(companyId) {
+    return await MedicationRepository.findManyByCompany(companyId);
+  }
+
   validateMedicationData(medicationData) {
     const validation = medicationSchema.safeParse(medicationData);
 
