@@ -33,6 +33,19 @@ class MedicationController {
       next(error);
     }
   };
+
+  show = async (req, res, next) => {
+    try {
+      const { companyId } = req.user;
+      const { id } = req.params;
+
+      const medication = await MedicationService.getById(id, companyId);
+
+      res.status(200).json({ success: true, medication });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default new MedicationController();

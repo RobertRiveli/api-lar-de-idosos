@@ -11,6 +11,12 @@ class MedicationRepository {
       orderBy: { genericName: "asc" },
     });
   }
+
+  async findByIdAndCompanyId(medicationId, companyId) {
+    return await prisma.medication.findUnique({
+      where: { id: medicationId, companyId, isActive: true },
+    });
+  }
 }
 
 export default new MedicationRepository();

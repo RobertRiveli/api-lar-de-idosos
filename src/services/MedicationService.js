@@ -24,6 +24,19 @@ class MedicationService {
     return await MedicationRepository.findManyByCompany(companyId);
   }
 
+  async getById(medicationId, companyId) {
+    const medication = await MedicationRepository.findByIdAndCompanyId(
+      medicationId,
+      companyId,
+    );
+
+    if (!medication) {
+      throw new ValidationError("medication", "Medicamento não encontrado");
+    }
+
+    return medication;
+  }
+
   validateMedicationData(medicationData) {
     const validation = medicationSchema.safeParse(medicationData);
 

@@ -11,6 +11,7 @@ class MedicationRouter {
   setupRoutes() {
     this.router.post("/", authMiddleware, MedicationController.create);
     this.router.get("/", authMiddleware, MedicationController.list);
+    this.router.get("/:id", authMiddleware, MedicationController.show);
   }
 }
 
