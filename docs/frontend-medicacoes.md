@@ -11,6 +11,7 @@ Funcionalidades disponiveis atualmente:
 - Cadastrar medicamento na empresa do usuario autenticado.
 - Listar medicamentos ativos da empresa.
 - Buscar os detalhes de um medicamento ativo especifico.
+- Editar um medicamento ativo especifico.
 - Deletar medicamento, usando exclusao logica (`isActive: false`).
 
 ## Base da API
@@ -87,11 +88,32 @@ const emptyToUndefined = (value) => {
   return normalized ? normalized : undefined;
 };
 
+const emptyToNull = (value) => {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+};
+
 const normalizeMedicationPayload = (form) => ({
   genericName: form.genericName.trim(),
   brandName: emptyToUndefined(form.brandName),
   form: form.form.trim(),
   strength: emptyToUndefined(form.strength),
+});
+```
+
+Para telas de edicao, use `null` quando o usuario limpar campos opcionais. Assim o backend remove o valor antigo de `brandName` ou `strength`.
+
+```js
+const emptyToNull = (value) => {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+};
+
+const normalizeMedicationUpdatePayload = (form) => ({
+  genericName: form.genericName.trim(),
+  brandName: emptyToNull(form.brandName),
+  form: form.form.trim(),
+  strength: emptyToNull(form.strength),
 });
 ```
 
@@ -148,7 +170,7 @@ Use opcoes padronizadas para `form` quando possivel, mas envie texto simples par
 | Injetavel         | `injetavel`    |
 | Pomada            | `pomada`       |
 
-O backend cria o medicamento como ativo automaticamente (`isActive: true`). A API atual nao possui endpoint de edicao.
+O backend cria o medicamento como ativo automaticamente (`isActive: true`).
 
 Existe uma restricao de unicidade no banco para a combinacao `genericName`, `companyId`, `strength` e `form`. Para evitar registros duplicados, o frontend pode validar ou avisar quando o usuario tentar cadastrar um medicamento com o mesmo nome generico, forma e dosagem dentro da mesma empresa, caso essa informacao ja esteja disponivel na interface.
 
@@ -345,6 +367,27 @@ Exemplos de erros de validacao:
 | `form`        | `A forma do medicamento é obrigatória`                      |
 | `strength`    | `A dosagem do medicamento deve ter no máximo 80 caracteres` |
 
+#### Medicamento duplicado
+
+Status HTTP:
+
+```http
+409 Conflict
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Conflito de dados",
+  "errors": {
+    "medication": "Medicamento já cadastrado com o mesmo nome, forma e dosagem"
+  },
+  "errorType": "CONFLICT_ERROR"
+}
+```
+
 ## Listar medicamentos
 
 Use esta funcao para montar a listagem de medicamentos ativos da empresa do usuario autenticado.
@@ -523,6 +566,225 @@ Body:
 ```
 
 ### Erro quando nao encontrado
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "medication": "Medicamento não encontrado"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+## Editar medicamento
+
+Use esta funcao quando um usuario administrador salvar alteracoes em um medicamento existente.
+
+A edicao atual usa payload completo. Envie os mesmos campos usados no cadastro: `genericName`, `brandName`, `form` e `strength`. O frontend nao deve enviar `companyId`, `isActive`, `createdAt` ou `updatedAt`.
+
+### Endpoint
+
+```http
+PUT /medications/:id
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+
+### Permissao
+
+Somente usuarios com `role` igual a `admin` podem editar medicamentos.
+
+Se um usuario diferente tentar editar, a API retorna erro de validacao no campo `role`.
+
+### Parametros de rota
+
+| Parametro | Tipo   | Obrigatorio | Descricao             |
+| --------- | ------ | ----------- | --------------------- |
+| `id`      | string | Sim         | ID do medicamento.    |
+
+### Payload
+
+Contrato atual da API:
+
+```json
+{
+  "genericName": "Paracetamol",
+  "brandName": "Tylenol",
+  "form": "comprimido",
+  "strength": "750mg"
+}
+```
+
+Para limpar `brandName` ou `strength`, envie `null`:
+
+```json
+{
+  "genericName": "Paracetamol",
+  "brandName": null,
+  "form": "comprimido",
+  "strength": null
+}
+```
+
+### Campos da edicao
+
+| Campo         | Tipo               | Obrigatorio | Regra                                             |
+| ------------- | ------------------ | ----------- | ------------------------------------------------- |
+| `genericName` | string             | Sim         | Nome generico com 2 a 120 caracteres.             |
+| `brandName`   | string ou `null`   | Nao         | Nome da marca com no maximo 120 caracteres.       |
+| `form`        | string             | Sim         | Forma do medicamento com pelo menos 2 caracteres. |
+| `strength`    | string ou `null`   | Nao         | Dosagem/concentracao com no maximo 80 caracteres. |
+
+### Comportamento da API
+
+A API edita o medicamento somente quando ele pertence a empresa do usuario autenticado e esta ativo (`isActive: true`).
+
+Se o medicamento nao existir, pertencer a outra empresa ou estiver inativo, a API retorna erro de validacao com a mensagem `Medicamento não encontrado`.
+
+Tambem existe validacao de duplicidade para evitar outro medicamento ativo com a mesma combinacao de `genericName`, `form` e `strength` dentro da empresa.
+
+### Exemplo com fetch
+
+```js
+async function updateMedication(id, form) {
+  const token = localStorage.getItem("accessToken");
+  const emptyToNull = (value) => {
+    const normalized = value?.trim();
+    return normalized ? normalized : null;
+  };
+
+  const payload = {
+    genericName: form.genericName.trim(),
+    brandName: emptyToNull(form.brandName),
+    form: form.form.trim(),
+    strength: emptyToNull(form.strength),
+  };
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/medications/${id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data.medication;
+}
+```
+
+### Exemplo com Axios
+
+```js
+export async function updateMedication(id, form) {
+  const emptyToNull = (value) => {
+    const normalized = value?.trim();
+    return normalized ? normalized : null;
+  };
+
+  const { data } = await api.put(`/medications/${id}`, {
+    genericName: form.genericName.trim(),
+    brandName: emptyToNull(form.brandName),
+    form: form.form.trim(),
+    strength: emptyToNull(form.strength),
+  });
+
+  return data.medication;
+}
+```
+
+### Resposta de sucesso
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "success": true,
+  "message": "Medicamento atualizado com sucesso",
+  "medication": {
+    "id": "uuid-do-medicamento",
+    "companyId": "uuid-da-empresa",
+    "genericName": "Paracetamol",
+    "brandName": "Tylenol",
+    "form": "comprimido",
+    "strength": "750mg",
+    "isActive": true,
+    "createdAt": "2026-04-28T10:30:00.000Z",
+    "updatedAt": "2026-04-29T09:00:00.000Z"
+  }
+}
+```
+
+### Erros da edicao
+
+#### Usuario sem permissao
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "role": "Apenas administradores podem atualizar medicamentos"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+#### Medicamento duplicado
+
+Status HTTP:
+
+```http
+409 Conflict
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Conflito de dados",
+  "errors": {
+    "medication": "Medicamento já cadastrado com o mesmo nome, forma e dosagem"
+  },
+  "errorType": "CONFLICT_ERROR"
+}
+```
+
+#### Medicamento nao encontrado
 
 Status HTTP:
 
@@ -749,6 +1011,17 @@ export async function getMedicationById(id) {
   return data.medication;
 }
 
+export async function updateMedication(id, form) {
+  const { data } = await api.put(`/medications/${id}`, {
+    genericName: form.genericName.trim(),
+    brandName: emptyToNull(form.brandName),
+    form: form.form.trim(),
+    strength: emptyToNull(form.strength),
+  });
+
+  return data.medication;
+}
+
 export async function deleteMedication(id) {
   const { data } = await api.delete(`/medications/${id}`);
 
@@ -761,12 +1034,15 @@ export async function deleteMedication(id) {
 Para as telas de cadastro e listagem, trate pelo menos estes estados:
 
 - carregando durante o envio do formulario;
+- carregando durante a atualizacao do formulario;
 - carregando durante a busca da listagem;
 - carregando durante a busca dos detalhes de um medicamento selecionado;
 - confirmacao antes de deletar um medicamento;
 - sucesso com a mensagem `Medicamento cadastrado com sucesso`;
+- sucesso com a mensagem `Medicamento atualizado com sucesso`;
 - sucesso com a mensagem `Medicamento deletado com sucesso`;
 - listagem vazia quando `medications` vier como array vazio;
 - erro de validacao exibindo a mensagem do campo retornado em `errors`;
+- erro de conflito quando ja existir medicamento ativo com mesmo nome, forma e dosagem;
 - erro de autenticacao/token direcionando o usuario para login quando fizer sentido;
-- permissao insuficiente escondendo ou desabilitando cadastro e delecao para usuarios que nao sejam `admin`.
+- permissao insuficiente escondendo ou desabilitando cadastro, edicao e delecao para usuarios que nao sejam `admin`.
