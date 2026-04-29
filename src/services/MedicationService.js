@@ -37,6 +37,19 @@ class MedicationService {
     return medication;
   }
 
+  async delete(medicationId, companyId, userRole) {
+    if (userRole !== "admin") {
+      throw new ValidationError(
+        "role",
+        "Apenas administradores podem deletar medicamentos",
+      );
+    }
+
+    await this.getById(medicationId, companyId);
+
+    return await MedicationRepository.deactivate(medicationId);
+  }
+
   validateMedicationData(medicationData) {
     const validation = medicationSchema.safeParse(medicationData);
 
