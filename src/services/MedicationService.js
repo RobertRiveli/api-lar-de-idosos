@@ -1,6 +1,7 @@
 import MedicationRepository from "../repositories/MedicationRepository.js";
 import medicationSchema from "../validators/medicationValidator.js";
 import ValidationError from "../errors/ValidationError.js";
+import ConflictError from "../errors/ConflictError.js";
 
 class MedicationService {
   async create(medicationData, companyId, userRole) {
@@ -13,8 +14,13 @@ class MedicationService {
 
     this.validateMedicationData(medicationData);
 
+    const normalizedMedicationData =
+      this.normalizeMedicationData(medicationData);
+
+    await this.checkConflict(normalizedMedicationData, companyId);
+
     const newMedication = await MedicationRepository.create({
-      ...medicationData,
+      ...normalizedMedicationData,
       companyId,
     });
     return newMedication;
@@ -35,6 +41,32 @@ class MedicationService {
     }
 
     return medication;
+  }
+
+  async update(medicationId, medicationData, companyId, userRole) {
+    if (userRole !== "admin") {
+      throw new ValidationError(
+        "role",
+        "Apenas administradores podem atualizar medicamentos",
+      );
+    }
+
+    await this.getById(medicationId, companyId);
+    this.validateMedicationData(medicationData);
+
+    const normalizedMedicationData =
+      this.normalizeMedicationData(medicationData);
+
+    await this.checkConflict(
+      normalizedMedicationData,
+      companyId,
+      medicationId,
+    );
+
+    return await MedicationRepository.update(
+      medicationId,
+      normalizedMedicationData,
+    );
   }
 
   async delete(medicationId, companyId, userRole) {
@@ -58,6 +90,29 @@ class MedicationService {
       const field = firstIssue.path[0];
 
       throw new ValidationError(field, firstIssue.message);
+    }
+  }
+
+  normalizeMedicationData(medicationData) {
+    return {
+      ...medicationData,
+      brandName: medicationData.brandName ?? null,
+      strength: medicationData.strength ?? null,
+    };
+  }
+
+  async checkConflict(medicationData, companyId, medicationIdToIgnore = null) {
+    const duplicate = await MedicationRepository.findDuplicateByMedicationData(
+      medicationData,
+      companyId,
+      medicationIdToIgnore,
+    );
+
+    if (duplicate) {
+      throw new ConflictError(
+        "medication",
+        "Medicamento já cadastrado com o mesmo nome, forma e dosagem",
+      );
     }
   }
 }

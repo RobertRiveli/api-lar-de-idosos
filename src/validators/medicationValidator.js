@@ -9,6 +9,7 @@ const medicationSchema = z.object({
   brandName: z
     .string()
     .max(120, "O nome da marca deve ter no máximo 120 caracteres")
+    .nullable()
     .optional(),
 
   form: z.string().min(2, "A forma do medicamento é obrigatória"),
@@ -16,6 +17,7 @@ const medicationSchema = z.object({
   strength: z
     .string()
     .max(80, "A dosagem do medicamento deve ter no máximo 80 caracteres")
+    .nullable()
     .optional(),
 });
 

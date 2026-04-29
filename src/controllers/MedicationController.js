@@ -47,6 +47,29 @@ class MedicationController {
     }
   };
 
+  update = async (req, res, next) => {
+    try {
+      const { companyId, role } = req.user;
+      const { id } = req.params;
+      const medicationData = req.body;
+
+      const medication = await MedicationService.update(
+        id,
+        medicationData,
+        companyId,
+        role,
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Medicamento atualizado com sucesso",
+        medication,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   delete = async (req, res, next) => {
     try {
       const { companyId, role } = req.user;
