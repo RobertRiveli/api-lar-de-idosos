@@ -10,6 +10,8 @@ Funcionalidades disponiveis atualmente:
 
 - Cadastrar medicamento na empresa do usuario autenticado.
 - Listar medicamentos ativos da empresa.
+- Buscar os detalhes de um medicamento ativo especifico.
+- Deletar medicamento, usando exclusao logica (`isActive: false`).
 
 ## Base da API
 
@@ -146,7 +148,7 @@ Use opcoes padronizadas para `form` quando possivel, mas envie texto simples par
 | Injetavel         | `injetavel`    |
 | Pomada            | `pomada`       |
 
-O backend cria o medicamento como ativo automaticamente (`isActive: true`). A API atual nao possui endpoint de edicao, inativacao ou exclusao de medicamentos.
+O backend cria o medicamento como ativo automaticamente (`isActive: true`). A API atual nao possui endpoint de edicao.
 
 Existe uma restricao de unicidade no banco para a combinacao `genericName`, `companyId`, `strength` e `form`. Para evitar registros duplicados, o frontend pode validar ou avisar quando o usuario tentar cadastrar um medicamento com o mesmo nome generico, forma e dosagem dentro da mesma empresa, caso essa informacao ja esteja disponivel na interface.
 
@@ -434,6 +436,246 @@ Quando nao houver medicamentos ativos, a API retorna:
 }
 ```
 
+## Buscar medicamento por ID
+
+Use esta funcao quando o usuario selecionar um medicamento especifico na listagem ou quando uma tela de detalhes receber o `id` pela rota do frontend.
+
+### Endpoint
+
+```http
+GET /medications/:id
+Authorization: Bearer <token>
+```
+
+### Parametros de rota
+
+| Parametro | Tipo   | Obrigatorio | Descricao             |
+| --------- | ------ | ----------- | --------------------- |
+| `id`      | string | Sim         | ID do medicamento.    |
+
+### Comportamento da API
+
+A API retorna o medicamento somente quando ele pertence a empresa do usuario autenticado e esta ativo (`isActive: true`).
+
+Se o medicamento nao existir, pertencer a outra empresa ou estiver inativo, a API retorna erro de validacao com a mensagem `Medicamento não encontrado`.
+
+### Exemplo com fetch
+
+```js
+async function getMedicationById(id) {
+  const token = localStorage.getItem("accessToken");
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/medications/${id}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data.medication;
+}
+```
+
+### Exemplo com Axios
+
+```js
+export async function getMedicationById(id) {
+  const { data } = await api.get(`/medications/${id}`);
+
+  return data.medication;
+}
+```
+
+### Resposta de sucesso
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "success": true,
+  "medication": {
+    "id": "uuid-do-medicamento",
+    "companyId": "uuid-da-empresa",
+    "genericName": "Paracetamol",
+    "brandName": "Tylenol",
+    "form": "comprimido",
+    "strength": "500mg",
+    "isActive": true,
+    "createdAt": "2026-04-28T10:30:00.000Z",
+    "updatedAt": "2026-04-28T10:30:00.000Z"
+  }
+}
+```
+
+### Erro quando nao encontrado
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "medication": "Medicamento não encontrado"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+## Deletar medicamento
+
+Use esta funcao quando um usuario administrador confirmar a remocao de um medicamento.
+
+A delecao e logica: o backend nao remove o registro do banco. Ele apenas atualiza `isActive` para `false`. Depois disso, o medicamento deixa de aparecer na listagem e tambem nao e retornado pela busca por ID.
+
+### Endpoint
+
+```http
+DELETE /medications/:id
+Authorization: Bearer <token>
+```
+
+### Permissao
+
+Somente usuarios com `role` igual a `admin` podem deletar medicamentos.
+
+Se um usuario diferente tentar deletar, a API retorna erro de validacao no campo `role`.
+
+### Parametros de rota
+
+| Parametro | Tipo   | Obrigatorio | Descricao             |
+| --------- | ------ | ----------- | --------------------- |
+| `id`      | string | Sim         | ID do medicamento.    |
+
+### Exemplo com fetch
+
+```js
+async function deleteMedication(id) {
+  const token = localStorage.getItem("accessToken");
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/medications/${id}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data.medication;
+}
+```
+
+### Exemplo com Axios
+
+```js
+export async function deleteMedication(id) {
+  const { data } = await api.delete(`/medications/${id}`);
+
+  return data.medication;
+}
+```
+
+### Resposta de sucesso
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "success": true,
+  "message": "Medicamento deletado com sucesso",
+  "medication": {
+    "id": "uuid-do-medicamento",
+    "companyId": "uuid-da-empresa",
+    "genericName": "Paracetamol",
+    "brandName": "Tylenol",
+    "form": "comprimido",
+    "strength": "500mg",
+    "isActive": false,
+    "createdAt": "2026-04-28T10:30:00.000Z",
+    "updatedAt": "2026-04-28T11:00:00.000Z"
+  }
+}
+```
+
+### Erros da delecao
+
+#### Usuario sem permissao
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "role": "Apenas administradores podem deletar medicamentos"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+#### Medicamento nao encontrado
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "medication": "Medicamento não encontrado"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
 ### Uso sugerido na tela
 
 ```js
@@ -500,6 +742,18 @@ export async function listMedications() {
 
   return data.medications;
 }
+
+export async function getMedicationById(id) {
+  const { data } = await api.get(`/medications/${id}`);
+
+  return data.medication;
+}
+
+export async function deleteMedication(id) {
+  const { data } = await api.delete(`/medications/${id}`);
+
+  return data.medication;
+}
 ```
 
 ## Estados recomendados de UI
@@ -508,8 +762,11 @@ Para as telas de cadastro e listagem, trate pelo menos estes estados:
 
 - carregando durante o envio do formulario;
 - carregando durante a busca da listagem;
+- carregando durante a busca dos detalhes de um medicamento selecionado;
+- confirmacao antes de deletar um medicamento;
 - sucesso com a mensagem `Medicamento cadastrado com sucesso`;
+- sucesso com a mensagem `Medicamento deletado com sucesso`;
 - listagem vazia quando `medications` vier como array vazio;
 - erro de validacao exibindo a mensagem do campo retornado em `errors`;
 - erro de autenticacao/token direcionando o usuario para login quando fizer sentido;
-- permissao insuficiente escondendo ou desabilitando o cadastro para usuarios que nao sejam `admin`.
+- permissao insuficiente escondendo ou desabilitando cadastro e delecao para usuarios que nao sejam `admin`.
