@@ -1,4 +1,4 @@
-import { prisma } from "../database/prisma.js";
+import { prisma } from "../../database/prisma.js";
 
 class MedicationRepository {
   async create(data, db = prisma) {

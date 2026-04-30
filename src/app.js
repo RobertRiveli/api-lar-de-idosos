@@ -1,9 +1,9 @@
 import express from "express";
-import companyRouter from "./routes/CompanyRouter.js";
-import userRouter from "./routes/UserRouter.js";
-import authRouter from "./routes/AuthRouter.js";
-import MedicationRouter from "./routes/MedicationRouter.js";
-import ResidentRouter from "./routes/ResidentRouter.js";
+import CompanyRouter from "./modules/companies/CompanyRouter.js";
+import UserRouter from "./modules/users/UserRouter.js";
+import AuthRouter from "./modules/auth/AuthRouter.js";
+import MedicationRouter from "./modules/medications/MedicationRouter.js";
+import ResidentRouter from "./modules/residents/ResidentRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cors from "cors";
 
@@ -22,9 +22,9 @@ class App {
   }
 
   routes() {
-    this.app.use("/companies", companyRouter);
-    this.app.use("/users", userRouter);
-    this.app.use("/auth", authRouter);
+    this.app.use("/companies", CompanyRouter);
+    this.app.use("/users", UserRouter);
+    this.app.use("/auth", AuthRouter);
     this.app.use("/residents", ResidentRouter);
     this.app.use("/medications", MedicationRouter);
   }

@@ -1,4 +1,4 @@
-import companyService from "../services/CompanyService.js";
+import companyService from "./CompanyService.js";
 class CompanyCotroller {
   create = async (req, res, next) => {
     try {

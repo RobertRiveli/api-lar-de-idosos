@@ -1,4 +1,4 @@
-import ResidentService from "../services/ResidentService.js";
+import ResidentService from "./ResidentService.js";
 
 class ResidentController {
   create = async (req, res, next) => {

@@ -1,7 +1,7 @@
-import MedicationRepository from "../repositories/MedicationRepository.js";
-import medicationSchema from "../validators/medicationValidator.js";
-import ValidationError from "../errors/ValidationError.js";
-import ConflictError from "../errors/ConflictError.js";
+import MedicationRepository from "./MedicationRepository.js";
+import medicationSchema from "../../validators/medicationValidator.js";
+import ValidationError from "../../errors/ValidationError.js";
+import ConflictError from "../../errors/ConflictError.js";
 
 class MedicationService {
   async create(medicationData, companyId, userRole) {

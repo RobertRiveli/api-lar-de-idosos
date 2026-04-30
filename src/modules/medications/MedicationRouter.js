@@ -1,6 +1,6 @@
 import { Router } from "express";
-import MedicationController from "../controllers/MedicationController.js";
-import { authMiddleware } from "../middlewares/authMiddleware.js";
+import MedicationController from "./MedicationController.js";
+import { authMiddleware } from "../../middlewares/authMiddleware.js";
 
 class MedicationRouter {
   constructor() {

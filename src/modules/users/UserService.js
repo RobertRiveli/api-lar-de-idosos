@@ -1,10 +1,10 @@
 import bcrypt from "bcrypt";
-import userSchema from "../validators/userValidation.js";
-import { prisma } from "../database/prisma.js";
-import ConflictError from "../errors/ConflictError.js";
-import ValidationError from "../errors/ValidationError.js";
-import { validatePhone } from "../utils/phoneValidator.js";
-import UserRepository from "../repositories/UserRepository.js";
+import userSchema from "../../validators/userValidation.js";
+import { prisma } from "../../database/prisma.js";
+import ConflictError from "../../errors/ConflictError.js";
+import ValidationError from "../../errors/ValidationError.js";
+import { validatePhone } from "../../utils/phoneValidator.js";
+import UserRepository from "./UserRepository.js";
 
 class UserService {
   registerUser = async (userData, userRole, companyId) => {

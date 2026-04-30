@@ -1,6 +1,6 @@
 import { Router } from "express";
-import companyController from "../controllers/CompanyController.js";
-import { sanitizeCompanyData } from "../middlewares/sanitizeData.js";
+import companyController from "./CompanyController.js";
+import { sanitizeCompanyData } from "../../middlewares/sanitizeData.js";
 
 class CompanyRouter {
   constructor() {

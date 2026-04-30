@@ -1,7 +1,7 @@
-import ResidentRepository from "../repositories/ResidentRepository.js";
-import ValidationError from "../errors/ValidationError.js";
-import residentSchema from "../validators/residentValidator.js";
-import ConflictError from "../errors/ConflictError.js";
+import ResidentRepository from "./ResidentRepository.js";
+import ValidationError from "../../errors/ValidationError.js";
+import residentSchema from "../../validators/residentValidator.js";
+import ConflictError from "../../errors/ConflictError.js";
 
 class ResidentService {
   async create(residentData, companyId, userRole) {

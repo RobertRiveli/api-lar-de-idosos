@@ -1,7 +1,7 @@
 import { Router } from "express";
-import UserController from "../controllers/UserController.js";
-import { sanitizeUserData } from "../middlewares/sanitizeData.js";
-import { authMiddleware } from "../middlewares/authMiddleware.js";
+import UserController from "./UserController.js";
+import { sanitizeUserData } from "../../middlewares/sanitizeData.js";
+import { authMiddleware } from "../../middlewares/authMiddleware.js";
 
 class UserRouter {
   constructor() {

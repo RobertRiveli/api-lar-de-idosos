@@ -1,4 +1,4 @@
-import MedicationService from "../services/MedicationService.js";
+import MedicationService from "./MedicationService.js";
 
 class MedicationController {
   create = async (req, res, next) => {

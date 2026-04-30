@@ -1,8 +1,8 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import ValidationError from "../errors/ValidationError.js";
-import AuthRepository from "../repositories/AuthRepository.js";
-import loginSchema from "../validators/loginValidation.js";
+import ValidationError from "../../errors/ValidationError.js";
+import AuthRepository from "./AuthRepository.js";
+import loginSchema from "../../validators/loginValidation.js";
 
 class AuthService {
   async login(loginData) {

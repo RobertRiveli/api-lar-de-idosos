@@ -1,13 +1,13 @@
-import MailService from "./MailService.js";
-import { prisma } from "../database/prisma.js";
-import ConflictError from "../errors/ConflictError.js";
-import ValidationError from "../errors/ValidationError.js";
-import CompanyRepository from "../repositories/CompanyRepository.js";
-import companySchema from "../validators/companyValidator.js";
+import MailService from "../../services/MailService.js";
+import { prisma } from "../../database/prisma.js";
+import ConflictError from "../../errors/ConflictError.js";
+import ValidationError from "../../errors/ValidationError.js";
+import CompanyRepository from "./CompanyRepository.js";
+import companySchema from "../../validators/companyValidator.js";
 import { isCNPJ } from "validation-br";
-import { validatePhone } from "../utils/phoneValidator.js";
-import UserRepository from "../repositories/UserRepository.js";
-import userSchema from "../validators/userValidation.js";
+import { validatePhone } from "../../utils/phoneValidator.js";
+import UserRepository from "../users/UserRepository.js";
+import userSchema from "../../validators/userValidation.js";
 import bcrypt from "bcrypt";
 
 class CompanyService {
