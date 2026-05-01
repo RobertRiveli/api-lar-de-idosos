@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,36 +7,36 @@ datasource db {
 }
 
 model Company {
-  id         String   @id @default(uuid())
-  legalName String   @unique @map("legal_name")
-  tradeName String @map("trade_name")
-  taxId     String   @unique @map("tax_id")
-  email      String   @unique 
-  phone      String? 
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  users      User[]  
-  residents   Resident[] 
-  medications   Medication[] 
+  id          String       @id @default(uuid())
+  legalName   String       @unique @map("legal_name")
+  tradeName   String       @map("trade_name")
+  taxId       String       @unique @map("tax_id")
+  email       String       @unique
+  phone       String?
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  users       User[]
+  residents   Resident[]
+  medications Medication[]
 
-  @@map("companies")  
+  @@map("companies")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  companyId String  @map("company_id") 
+  id        String  @id @default(uuid())
+  companyId String  @map("company_id")
   company   Company @relation(fields: [companyId], references: [id])
-  
-  email     String   
-  fullName String   @map("full_name")
-  phone String?
-  passwordHash  String @map("password_hash")
-  cpf String @unique
 
-  role Role @default(caregiver)
-  isActive  Boolean  @default(true) @map("is_active")
-  
+  email        String
+  fullName     String  @map("full_name")
+  phone        String?
+  passwordHash String  @map("password_hash")
+  cpf          String  @unique
+
+  role     Role    @default(caregiver)
+  isActive Boolean @default(true) @map("is_active")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -52,38 +51,51 @@ enum Role {
 }
 
 model Resident {
-  id        String   @id @default(uuid())
-  companyId String   @map("company_id")
-  company   Company  @relation(fields: [companyId], references: [id])
-  
-  fullName String   @map("full_name")
-  cpf String? @unique
-  birthDate DateTime @map("birth_date")
-  gender String?
-  bloodType String? @map("blood_type")
+  id        String  @id @default(uuid())
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
+
+  fullName      String   @map("full_name")
+  cpf           String?  @unique
+  birthDate     DateTime @map("birth_date")
+  gender        String?
+  bloodType     String?  @map("blood_type")
   admissionDate DateTime @map("admission_date")
-  status String? @default("active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  status        String?  @default("active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("residents")
 }
 
 model Medication {
-  id String @id @default(uuid())
-  companyId String @map("company_id")
-  company Company @relation(fields: [companyId], references: [id])
+  id        String  @id @default(uuid())
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
 
-  genericName String @map("generic_name")
+  genericName String   @map("generic_name")
   brandName   String?  @map("brand_name")
   form        String
   strength    String?
   isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([genericName, companyId, strength, form])
+  @@index([companyId])
+  @@map("medications")
+}
+
+model MeasurementUnit {
+  id           String  @id @default(uuid())
+  name         String  @unique
+  abbreviation String
+  category     String
+  isActive     Boolean @default(true) @map("is_active")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([companyId])
-  @@unique([genericName, companyId, strength, form])
-
-  @@map("medications")
+  @@unique([abbreviation, category])
+  @@map("measurement_units")
 }
