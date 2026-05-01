@@ -7,18 +7,19 @@ datasource db {
 }
 
 model Company {
-  id          String       @id @default(uuid())
-  legalName   String       @unique @map("legal_name")
-  tradeName   String       @map("trade_name")
-  taxId       String       @unique @map("tax_id")
-  email       String       @unique
-  phone       String?
-  isActive    Boolean      @default(true) @map("is_active")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  users       User[]
-  residents   Resident[]
-  medications Medication[]
+  id            String         @id @default(uuid())
+  legalName     String         @unique @map("legal_name")
+  tradeName     String         @map("trade_name")
+  taxId         String         @unique @map("tax_id")
+  email         String         @unique
+  phone         String?
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  users         User[]
+  residents     Resident[]
+  medications   Medication[]
+  prescriptions Prescription[]
 
   @@map("companies")
 }
@@ -55,15 +56,16 @@ model Resident {
   companyId String  @map("company_id")
   company   Company @relation(fields: [companyId], references: [id])
 
-  fullName      String   @map("full_name")
-  cpf           String?  @unique
-  birthDate     DateTime @map("birth_date")
+  fullName      String         @map("full_name")
+  cpf           String?        @unique
+  birthDate     DateTime       @map("birth_date")
   gender        String?
-  bloodType     String?  @map("blood_type")
-  admissionDate DateTime @map("admission_date")
-  status        String?  @default("active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  bloodType     String?        @map("blood_type")
+  admissionDate DateTime       @map("admission_date")
+  status        String?        @default("active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  prescriptions Prescription[]
 
   @@map("residents")
 }
@@ -73,13 +75,14 @@ model Medication {
   companyId String  @map("company_id")
   company   Company @relation(fields: [companyId], references: [id])
 
-  genericName String   @map("generic_name")
-  brandName   String?  @map("brand_name")
-  form        String
-  strength    String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  genericName   String         @map("generic_name")
+  brandName     String?        @map("brand_name")
+  form          String
+  strength      String?
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  prescriptions Prescription[]
 
   @@unique([genericName, companyId, strength, form])
   @@index([companyId])
@@ -93,9 +96,38 @@ model MeasurementUnit {
   category     String
   isActive     Boolean @default(true) @map("is_active")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  prescriptions Prescription[]
 
   @@unique([abbreviation, category])
   @@map("measurement_units")
+}
+
+model Prescription {
+  id                String          @id @default(uuid())
+  companyId         String          @map("company_id")
+  company           Company         @relation(fields: [companyId], references: [id])
+  residentId        String          @map("resident_id")
+  resident          Resident        @relation(fields: [residentId], references: [id])
+  medicationId      String          @map("medication_id")
+  medication        Medication      @relation(fields: [medicationId], references: [id])
+  measurementUnitId String          @map("measurement_unit_id")
+  measurementUnit   MeasurementUnit @relation(fields: [measurementUnitId], references: [id])
+
+  dosage       String
+  route        String
+  frequency    String
+  prescribedBy String    @map("prescribed_by")
+  startDate    DateTime  @map("start_date")
+  endDate      DateTime? @map("end_date")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([residentId])
+  @@index([medicationId])
+  @@index([measurementUnitId])
+  @@map("prescriptions")
 }
