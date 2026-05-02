@@ -1,97 +1,115 @@
 import z from "zod";
 
 const requiredString = (message) => z.string().trim().min(1, message);
-const prescriptionDateRegex = /^(\d{2})-(\d{2})-(\d{4})$/;
-const dateLabel = (fieldName) =>
-  fieldName === "endDate" ? "Data final" : "Data de início";
+const uuidSchema = (fieldName) =>
+  z.uuid(`${fieldName} deve ser um UUID válido`);
 
-export const parsePrescriptionDate = (date) => {
-  const match = prescriptionDateRegex.exec(date);
-
-  if (!match) return null;
-
-  const [, day, month, year] = match;
-  const parsedDate = new Date(
-    Date.UTC(Number(year), Number(month) - 1, Number(day)),
-  );
-
-  const isValidDate =
-    parsedDate.getUTCFullYear() === Number(year) &&
-    parsedDate.getUTCMonth() === Number(month) - 1 &&
-    parsedDate.getUTCDate() === Number(day);
-
-  return isValidDate ? parsedDate : null;
+const dateLabels = {
+  startDate: "startDate",
+  endDate: "endDate",
+  firstScheduledAt: "firstScheduledAt",
 };
 
-const isValidPrescriptionDate = (date) => parsePrescriptionDate(date) !== null;
+export const parsePrescriptionDate = (date) => {
+  const parsedDate = new Date(date);
 
-const dateString = (fieldName) =>
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+const dateTimeString = (fieldName) =>
   z
     .string()
     .trim()
-    .min(1, `${dateLabel(fieldName)} é obrigatória`)
-    .regex(prescriptionDateRegex, {
-      message: `${dateLabel(fieldName)} deve estar no formato DD-MM-AAAA`,
-    })
-    .refine(isValidPrescriptionDate, {
-      message: `${dateLabel(fieldName)} deve ser uma data válida`,
+    .min(1, `${dateLabels[fieldName]} é obrigatório`)
+    .datetime({
+      offset: true,
+      message: `${dateLabels[fieldName]} deve estar em formato ISO`,
     });
 
-const optionalDateString = z
-  .string()
-  .trim()
-  .refine((date) => !date || prescriptionDateRegex.test(date), {
-    message: "Data final deve estar no formato DD-MM-AAAA",
-  })
-  .refine((date) => !date || isValidPrescriptionDate(date), {
-    message: "Data final deve ser uma data válida",
-  })
-  .nullable()
-  .optional();
+const optionalDateTimeString = (fieldName) =>
+  z.preprocess(
+    (value) => {
+      if (typeof value === "string" && value.trim() === "") return null;
+
+      return value;
+    },
+    dateTimeString(fieldName).nullable().optional(),
+  );
+
+const intervalHoursSchema = z.preprocess(
+  (value) => {
+    if (typeof value === "string" && value.trim() === "") return undefined;
+    if (typeof value === "string") return Number(value);
+
+    return value;
+  },
+  z
+    .number({
+      message: "intervalHours é obrigatório",
+    })
+    .int("intervalHours deve ser um número inteiro")
+    .min(1, "intervalHours deve ser maior que zero"),
+);
 
 const validateDateRange = (data, ctx) => {
-  if (!data.startDate || !data.endDate) return;
+  const startDate = data.startDate && parsePrescriptionDate(data.startDate);
+  const endDate = data.endDate && parsePrescriptionDate(data.endDate);
+  const firstScheduledAt =
+    data.firstScheduledAt && parsePrescriptionDate(data.firstScheduledAt);
 
-  const startDate = parsePrescriptionDate(data.startDate);
-  const endDate = parsePrescriptionDate(data.endDate);
-
-  if (!startDate || !endDate) return;
-
-  if (endDate < startDate) {
+  if (startDate && endDate && endDate < startDate) {
     ctx.addIssue({
       code: "custom",
       path: ["endDate"],
-      message: "Data final não pode ser menor que data de inicio",
+      message: "endDate não pode ser menor que startDate",
+    });
+  }
+
+  if (startDate && firstScheduledAt && firstScheduledAt < startDate) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["firstScheduledAt"],
+      message: "firstScheduledAt não pode ser menor que startDate",
+    });
+  }
+
+  if (endDate && firstScheduledAt && firstScheduledAt > endDate) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["firstScheduledAt"],
+      message: "firstScheduledAt não pode ser maior que endDate",
     });
   }
 };
 
 export const createPrescriptionSchema = z
   .object({
-    residentId: requiredString("Residente é obrigatório"),
-    medicationId: requiredString("Medicamento é obrigatório"),
-    measurementUnitId: requiredString("Unidade de medida é obrigatória"),
+    residentId: uuidSchema("residentId"),
+    medicationId: uuidSchema("medicationId"),
+    measurementUnitId: uuidSchema("measurementUnitId"),
     dosage: requiredString("Dosagem é obrigatória"),
     route: requiredString("Forma de consumo é obrigatória"),
     frequency: requiredString("Frequência é obrigatória"),
+    intervalHours: intervalHoursSchema,
+    firstScheduledAt: dateTimeString("firstScheduledAt"),
     prescribedBy: requiredString("Prescritor é obrigatório"),
-    startDate: dateString("startDate"),
-    endDate: optionalDateString,
+    startDate: dateTimeString("startDate"),
+    endDate: optionalDateTimeString("endDate"),
   })
   .superRefine(validateDateRange);
 
 export const updatePrescriptionSchema = z
   .object({
-    residentId: requiredString("Residente é obrigatório").optional(),
-    medicationId: requiredString("Medicamento é obrigatório").optional(),
-    measurementUnitId: requiredString(
-      "Unidade de medida é obrigatória",
-    ).optional(),
+    residentId: uuidSchema("residentId").optional(),
+    medicationId: uuidSchema("medicationId").optional(),
+    measurementUnitId: uuidSchema("measurementUnitId").optional(),
     dosage: requiredString("Dosagem é obrigatória").optional(),
     route: requiredString("Forma de consumo é obrigatória").optional(),
     frequency: requiredString("Frequência é obrigatória").optional(),
+    intervalHours: intervalHoursSchema.optional(),
+    firstScheduledAt: dateTimeString("firstScheduledAt").optional(),
     prescribedBy: requiredString("Prescritor é obrigatório").optional(),
-    startDate: dateString("startDate").optional(),
-    endDate: optionalDateString,
+    startDate: dateTimeString("startDate").optional(),
+    endDate: optionalDateTimeString("endDate"),
   })
   .superRefine(validateDateRange);

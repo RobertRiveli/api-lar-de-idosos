@@ -2,6 +2,8 @@ import PrescriptionRepository from "./PrescriptionRepository.js";
 import ResidentRepository from "../residents/ResidentRepository.js";
 import MedicationRepository from "../medications/MedicationRepository.js";
 import MeasurementUnitRepository from "../measurementUnits/MeasurementUnitRepository.js";
+import MedicationAdministrationService from "../medicationAdministrations/MedicationAdministrationService.js";
+import { prisma } from "../../database/prisma.js";
 import ValidationError from "../../errors/ValidationError.js";
 import NotFoundError from "../../errors/NotFoundError.js";
 import {
@@ -12,26 +14,52 @@ import {
 
 class PrescriptionService {
   async createPrescription(user, prescriptionData) {
-    this.validatePrescriptionData(createPrescriptionSchema, prescriptionData);
+    this.ensureAdminRole(
+      user.role,
+      "Apenas administradores podem cadastrar prescrições",
+    );
+
+    const parsedPrescriptionData = this.validatePrescriptionData(
+      createPrescriptionSchema,
+      prescriptionData,
+    );
 
     const { companyId } = user;
 
     await this.ensureResidentBelongsToCompany(
-      prescriptionData.residentId,
+      parsedPrescriptionData.residentId,
       companyId,
     );
     await this.ensureMedicationBelongsToCompany(
-      prescriptionData.medicationId,
+      parsedPrescriptionData.medicationId,
       companyId,
     );
-    await this.ensureMeasurementUnitExists(prescriptionData.measurementUnitId);
+    await this.ensureMeasurementUnitExists(
+      parsedPrescriptionData.measurementUnitId,
+    );
 
     const normalizedPrescriptionData =
-      this.normalizePrescriptionData(prescriptionData);
+      this.normalizePrescriptionData(parsedPrescriptionData);
 
-    return await PrescriptionRepository.create({
-      ...normalizedPrescriptionData,
-      companyId,
+    return await prisma.$transaction(async (db) => {
+      const prescription = await PrescriptionRepository.create(
+        {
+          ...normalizedPrescriptionData,
+          companyId,
+        },
+        db,
+      );
+
+      const generatedAdministrations =
+        await MedicationAdministrationService.generateFromPrescription(
+          prescription,
+          db,
+        );
+
+      return {
+        prescription,
+        generatedAdministrations,
+      };
     });
   }
 
@@ -69,33 +97,38 @@ class PrescriptionService {
       );
     }
 
-    this.validatePrescriptionData(updatePrescriptionSchema, prescriptionData);
+    const parsedPrescriptionData = this.validatePrescriptionData(
+      updatePrescriptionSchema,
+      prescriptionData,
+    );
 
     const prescription = await this.getPrescriptionById(user, id);
     const { companyId } = user;
 
-    if (prescriptionData.residentId) {
+    if (parsedPrescriptionData.residentId) {
       await this.ensureResidentBelongsToCompany(
-        prescriptionData.residentId,
+        parsedPrescriptionData.residentId,
         companyId,
       );
     }
 
-    if (prescriptionData.medicationId) {
+    if (parsedPrescriptionData.medicationId) {
       await this.ensureMedicationBelongsToCompany(
-        prescriptionData.medicationId,
+        parsedPrescriptionData.medicationId,
         companyId,
       );
     }
 
-    if (prescriptionData.measurementUnitId) {
-      await this.ensureMeasurementUnitExists(prescriptionData.measurementUnitId);
+    if (parsedPrescriptionData.measurementUnitId) {
+      await this.ensureMeasurementUnitExists(
+        parsedPrescriptionData.measurementUnitId,
+      );
     }
 
-    this.validateUpdateDateRange(prescription, prescriptionData);
+    this.validateUpdateDateRange(prescription, parsedPrescriptionData);
 
     const normalizedPrescriptionData =
-      this.normalizePrescriptionData(prescriptionData);
+      this.normalizePrescriptionData(parsedPrescriptionData);
 
     return await PrescriptionRepository.update(id, normalizedPrescriptionData);
   }
@@ -115,6 +148,8 @@ class PrescriptionService {
 
       throw new ValidationError(field, firstIssue.message);
     }
+
+    return validation.data;
   }
 
   async ensureResidentBelongsToCompany(residentId, companyId) {
@@ -163,13 +198,31 @@ class PrescriptionService {
       : currentPrescription.startDate;
     const endDate =
       "endDate" in prescriptionData
-        ? prescriptionData.endDate && parsePrescriptionDate(prescriptionData.endDate)
+        ? prescriptionData.endDate &&
+          parsePrescriptionDate(prescriptionData.endDate)
         : currentPrescription.endDate;
+    const firstScheduledAt = prescriptionData.firstScheduledAt
+      ? parsePrescriptionDate(prescriptionData.firstScheduledAt)
+      : currentPrescription.firstScheduledAt;
 
     if (endDate && endDate < startDate) {
       throw new ValidationError(
         "endDate",
         "endDate não pode ser menor que startDate",
+      );
+    }
+
+    if (firstScheduledAt < startDate) {
+      throw new ValidationError(
+        "firstScheduledAt",
+        "firstScheduledAt não pode ser menor que startDate",
+      );
+    }
+
+    if (endDate && firstScheduledAt > endDate) {
+      throw new ValidationError(
+        "firstScheduledAt",
+        "firstScheduledAt não pode ser maior que endDate",
       );
     }
   }
@@ -183,6 +236,12 @@ class PrescriptionService {
       normalizedData.startDate = parsePrescriptionDate(normalizedData.startDate);
     }
 
+    if ("firstScheduledAt" in normalizedData) {
+      normalizedData.firstScheduledAt = parsePrescriptionDate(
+        normalizedData.firstScheduledAt,
+      );
+    }
+
     if ("endDate" in normalizedData) {
       normalizedData.endDate = normalizedData.endDate
         ? parsePrescriptionDate(normalizedData.endDate)
@@ -190,6 +249,12 @@ class PrescriptionService {
     }
 
     return normalizedData;
+  }
+
+  ensureAdminRole(role, message) {
+    if (role !== "admin") {
+      throw new ValidationError("role", message);
+    }
   }
 }
 
