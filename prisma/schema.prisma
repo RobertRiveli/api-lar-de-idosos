@@ -7,19 +7,20 @@ datasource db {
 }
 
 model Company {
-  id            String         @id @default(uuid())
-  legalName     String         @unique @map("legal_name")
-  tradeName     String         @map("trade_name")
-  taxId         String         @unique @map("tax_id")
-  email         String         @unique
-  phone         String?
-  isActive      Boolean        @default(true) @map("is_active")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  users         User[]
-  residents     Resident[]
-  medications   Medication[]
-  prescriptions Prescription[]
+  id                        String                     @id @default(uuid())
+  legalName                 String                     @unique @map("legal_name")
+  tradeName                 String                     @map("trade_name")
+  taxId                     String                     @unique @map("tax_id")
+  email                     String                     @unique
+  phone                     String?
+  isActive                  Boolean                    @default(true) @map("is_active")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  users                     User[]
+  residents                 Resident[]
+  medications               Medication[]
+  prescriptions             Prescription[]
+  medicationAdministrations MedicationAdministration[]
 
   @@map("companies")
 }
@@ -41,6 +42,8 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  medicationAdministrations MedicationAdministration[]
+
   @@unique([email, companyId])
   @@index([companyId])
   @@map("users")
@@ -56,16 +59,17 @@ model Resident {
   companyId String  @map("company_id")
   company   Company @relation(fields: [companyId], references: [id])
 
-  fullName      String         @map("full_name")
-  cpf           String?        @unique
-  birthDate     DateTime       @map("birth_date")
-  gender        String?
-  bloodType     String?        @map("blood_type")
-  admissionDate DateTime       @map("admission_date")
-  status        String?        @default("active")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  prescriptions Prescription[]
+  fullName                  String                     @map("full_name")
+  cpf                       String?                    @unique
+  birthDate                 DateTime                   @map("birth_date")
+  gender                    String?
+  bloodType                 String?                    @map("blood_type")
+  admissionDate             DateTime                   @map("admission_date")
+  status                    String?                    @default("active")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  prescriptions             Prescription[]
+  medicationAdministrations MedicationAdministration[]
 
   @@map("residents")
 }
@@ -115,19 +119,60 @@ model Prescription {
   measurementUnitId String          @map("measurement_unit_id")
   measurementUnit   MeasurementUnit @relation(fields: [measurementUnitId], references: [id])
 
-  dosage       String
-  route        String
-  frequency    String
-  prescribedBy String    @map("prescribed_by")
-  startDate    DateTime  @map("start_date")
-  endDate      DateTime? @map("end_date")
-  isActive     Boolean   @default(true) @map("is_active")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  dosage                    String
+  route                     String
+  frequency                 String
+  intervalHours             Int                        @map("interval_hours")
+  firstScheduledAt          DateTime                   @map("first_scheduled_at")
+  prescribedBy              String                     @map("prescribed_by")
+  startDate                 DateTime                   @map("start_date")
+  endDate                   DateTime?                  @map("end_date")
+  isActive                  Boolean                    @default(true) @map("is_active")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  medicationAdministrations MedicationAdministration[]
 
   @@index([companyId])
   @@index([residentId])
   @@index([medicationId])
   @@index([measurementUnitId])
+  @@index([firstScheduledAt])
   @@map("prescriptions")
+}
+
+model MedicationAdministration {
+  id             String       @id @default(uuid())
+  companyId      String       @map("company_id")
+  company        Company      @relation(fields: [companyId], references: [id])
+  prescriptionId String       @map("prescription_id")
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  residentId     String       @map("resident_id")
+  resident       Resident     @relation(fields: [residentId], references: [id])
+  caregiverId    String?      @map("caregiver_id")
+  caregiver      User?        @relation(fields: [caregiverId], references: [id])
+
+  scheduledAt    DateTime                       @map("scheduled_at")
+  administeredAt DateTime?                      @map("administered_at")
+  status         MedicationAdministrationStatus @default(pending)
+  notes          String?
+  reason         String?
+  createdAt      DateTime                       @default(now()) @map("created_at")
+  updatedAt      DateTime                       @updatedAt @map("updated_at")
+
+  @@unique([prescriptionId, scheduledAt])
+  @@index([companyId])
+  @@index([prescriptionId])
+  @@index([residentId])
+  @@index([caregiverId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("medication_administrations")
+}
+
+enum MedicationAdministrationStatus {
+  pending
+  administered
+  refused
+  missed
+  canceled
 }
