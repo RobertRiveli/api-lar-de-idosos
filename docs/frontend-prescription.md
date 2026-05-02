@@ -9,6 +9,7 @@ As rotas de prescricoes sao protegidas por token JWT. O backend identifica a emp
 Funcionalidades disponiveis:
 
 - cadastrar prescricao para um residente da empresa do usuario autenticado;
+- gerar automaticamente as administracoes futuras de medicamento apos o cadastro da prescricao;
 - listar prescricoes ativas da empresa;
 - listar prescricoes ativas de um residente especifico;
 - buscar os detalhes de uma prescricao ativa;
@@ -77,7 +78,9 @@ Campos retornados pela API:
 | `measurementUnit`   | object           | Dados basicos da unidade: `id`, `name`, `abbreviation`.         |
 | `dosage`            | string           | Quantidade prescrita, por exemplo `500`.                        |
 | `route`             | string           | Via de administracao, por exemplo `oral`.                       |
-| `frequency`         | string           | Frequencia, por exemplo `a cada 8 horas`.                       |
+| `frequency`         | string           | Texto exibivel da frequencia, por exemplo `a cada 8 horas`.     |
+| `intervalHours`     | number           | Intervalo usado pelo backend para calcular administracoes.       |
+| `firstScheduledAt`  | string           | Primeiro horario previsto para administracao em formato ISO.     |
 | `prescribedBy`      | string           | Nome do profissional que prescreveu.                            |
 | `startDate`         | string           | Data inicial em formato ISO na resposta.                        |
 | `endDate`           | string ou `null` | Data final em formato ISO ou `null`.                            |
@@ -104,9 +107,15 @@ O backend valida essas relacoes:
 
 ## Normalizacao recomendada
 
-O frontend deve enviar somente os campos aceitos pela API. Evite incluir `companyId`, `isActive`, `createdAt`, `updatedAt` ou objetos aninhados no payload.
+O frontend deve enviar somente os campos aceitos pela API. Evite incluir `companyId`, `isActive`, `createdAt`, `updatedAt`, `caregiverId`, `status` ou objetos aninhados no payload.
 
-Envie `startDate` e `endDate` no formato `DD-MM-AAAA`, por exemplo `01-05-2026`. Se a tela usar `input type="date"`, que normalmente entrega `YYYY-MM-DD`, converta o valor antes de montar o payload.
+Envie `startDate`, `endDate` e `firstScheduledAt` em formato ISO com timezone. O formato mais simples e seguro e UTC:
+
+```txt
+2026-05-02T08:00:00.000Z
+```
+
+Se a tela usar `input type="date"` e `input type="time"`, junte os valores e converta para ISO antes de montar o payload.
 
 ```js
 const emptyToUndefined = (value) => {
@@ -119,6 +128,12 @@ const emptyToNull = (value) => {
   return normalized ? normalized : null;
 };
 
+const toIsoDateTime = ({ date, time = "00:00" }) => {
+  if (!date) return "";
+
+  return new Date(`${date}T${time}:00`).toISOString();
+};
+
 const normalizePrescriptionPayload = (form) => ({
   residentId: form.residentId,
   medicationId: form.medicationId,
@@ -126,9 +141,16 @@ const normalizePrescriptionPayload = (form) => ({
   dosage: form.dosage.trim(),
   route: form.route.trim(),
   frequency: form.frequency.trim(),
+  intervalHours: Number(form.intervalHours),
+  firstScheduledAt: toIsoDateTime({
+    date: form.firstScheduledDate,
+    time: form.firstScheduledTime,
+  }),
   prescribedBy: form.prescribedBy.trim(),
-  startDate: form.startDate,
-  endDate: emptyToUndefined(form.endDate),
+  startDate: toIsoDateTime({ date: form.startDate }),
+  endDate: form.endDate
+    ? toIsoDateTime({ date: form.endDate, time: "23:59" })
+    : undefined,
 });
 
 const normalizePrescriptionUpdatePayload = (form) => ({
@@ -138,13 +160,17 @@ const normalizePrescriptionUpdatePayload = (form) => ({
   dosage: form.dosage.trim(),
   route: form.route.trim(),
   frequency: form.frequency.trim(),
+  intervalHours: Number(form.intervalHours),
+  firstScheduledAt: form.firstScheduledAt?.toISOString(),
   prescribedBy: form.prescribedBy.trim(),
-  startDate: form.startDate,
+  startDate: form.startDate?.toISOString(),
   endDate: emptyToNull(form.endDate),
 });
 ```
 
 Para edicao parcial, envie apenas os campos alterados. Para limpar `endDate`, envie `null`.
+
+Importante: a criacao de uma prescricao tambem cria automaticamente registros em `MedicationAdministration`. Por isso `intervalHours` e `firstScheduledAt` sao obrigatorios no cadastro.
 
 ## Cadastrar prescricao
 
@@ -160,7 +186,9 @@ Authorization: Bearer <token>
 
 ### Permissao
 
-Qualquer usuario autenticado pode cadastrar prescricoes.
+Somente usuarios com `role` igual a `admin` podem cadastrar prescricoes.
+
+Ao cadastrar uma prescricao, o backend cria a `Prescription` e gera automaticamente as administracoes futuras em `MedicationAdministration`, dentro da mesma transaction. Se a geracao das administracoes falhar, a prescricao tambem nao sera salva.
 
 ### Payload
 
@@ -174,25 +202,45 @@ Contrato atual da API:
   "dosage": "500",
   "route": "oral",
   "frequency": "a cada 8 horas",
+  "intervalHours": 8,
+  "firstScheduledAt": "2026-05-02T08:00:00.000Z",
   "prescribedBy": "Dr. Carlos Mendes",
-  "startDate": "01-05-2026",
+  "startDate": "2026-05-02T00:00:00.000Z",
   "endDate": null
 }
 ```
 
 ### Campos do cadastro
 
-| Campo               | Tipo             | Obrigatorio | Regra                                               |
-| ------------------- | ---------------- | ----------- | --------------------------------------------------- |
-| `residentId`        | string           | Sim         | Residente ativo da empresa do usuario.              |
-| `medicationId`      | string           | Sim         | Medicamento ativo da empresa do usuario.            |
-| `measurementUnitId` | string           | Sim         | Unidade de medida ativa.                            |
-| `dosage`            | string           | Sim         | Nao pode ser vazio.                                 |
-| `route`             | string           | Sim         | Nao pode ser vazio.                                 |
-| `frequency`         | string           | Sim         | Nao pode ser vazio.                                 |
-| `prescribedBy`      | string           | Sim         | Nao pode ser vazio.                                 |
-| `startDate`         | string           | Sim         | Data valida no formato `DD-MM-AAAA`.                |
-| `endDate`           | string ou `null` | Nao         | Data valida no formato `DD-MM-AAAA`; nao pode ser menor que `startDate`. |
+| Campo               | Tipo             | Obrigatorio | Regra                                                                    |
+| ------------------- | ---------------- | ----------- | ------------------------------------------------------------------------ |
+| `residentId`        | string           | Sim         | Residente ativo da empresa do usuario.                                   |
+| `medicationId`      | string           | Sim         | Medicamento ativo da empresa do usuario.                                 |
+| `measurementUnitId` | string           | Sim         | Unidade de medida ativa.                                                 |
+| `dosage`            | string           | Sim         | Nao pode ser vazio.                                                      |
+| `route`             | string           | Sim         | Nao pode ser vazio.                                                      |
+| `frequency`         | string           | Sim         | Nao pode ser vazio.                                                      |
+| `intervalHours`     | number           | Sim         | Inteiro maior que zero. Usado para calcular proximas administracoes.     |
+| `firstScheduledAt`  | string           | Sim         | Primeiro horario previsto em formato ISO com timezone.                   |
+| `prescribedBy`      | string           | Sim         | Nao pode ser vazio.                                                      |
+| `startDate`         | string           | Sim         | Data inicial em formato ISO com timezone.                                |
+| `endDate`           | string ou `null` | Nao         | Data final em formato ISO; nao pode ser menor que `startDate`.           |
+
+Regras da geracao automatica:
+
+- se `endDate` existir, o backend gera administracoes de `firstScheduledAt` ate `endDate`;
+- se `endDate` for `null`, o backend gera apenas os proximos 7 dias a partir de `firstScheduledAt`;
+- nenhuma administracao e gerada antes de `startDate`;
+- cada administracao criada inicia com `status: PENDING`, `caregiverId: null`, `administeredAt: null`, `reason: null` e `notes: null`;
+- o backend nao cria horarios duplicados para a mesma combinacao de `prescriptionId` e `scheduledAt`.
+
+### Cuidados com timezone e datas
+
+Use sempre ISO com timezone no payload. Se o usuario escolher `08:00` no horario local da interface, converta esse horario para ISO antes de enviar. O backend salva e calcula os proximos horarios usando instantes UTC, somando `intervalHours` em horas reais.
+
+Evite enviar datas sem timezone, como `2026-05-02 08:00` ou `2026-05-02T08:00:00`, porque diferentes navegadores e ambientes podem interpretar esses valores de forma diferente.
+
+Quando `endDate` for `null`, o backend usa uma janela de 7 dias. Nesse caso, `periodEnd` representa o limite final da janela, e nao necessariamente o ultimo horario gerado.
 
 ### Exemplo com fetch
 
@@ -220,7 +268,7 @@ async function createPrescription(form) {
     throw data;
   }
 
-  return data.prescription;
+  return data.data;
 }
 ```
 
@@ -233,7 +281,7 @@ export async function createPrescription(form) {
     normalizePrescriptionPayload(form),
   );
 
-  return data.prescription;
+  return data.data;
 }
 ```
 
@@ -250,35 +298,44 @@ Body:
 ```json
 {
   "success": true,
-  "message": "Prescrição cadastrada com sucesso",
-  "prescription": {
-    "id": "uuid-da-prescricao",
-    "companyId": "uuid-da-empresa",
-    "residentId": "uuid-do-residente",
-    "medicationId": "uuid-do-medicamento",
-    "measurementUnitId": "uuid-da-unidade",
-    "dosage": "500",
-    "route": "oral",
-    "frequency": "a cada 8 horas",
-    "prescribedBy": "Dr. Carlos Mendes",
-    "startDate": "2026-05-01T00:00:00.000Z",
-    "endDate": null,
-    "isActive": true,
-    "createdAt": "2026-05-01T10:30:00.000Z",
-    "updatedAt": "2026-05-01T10:30:00.000Z",
-    "resident": {
-      "id": "uuid-do-residente",
-      "fullName": "Joao da Silva"
+  "message": "Prescrição criada com sucesso.",
+  "data": {
+    "prescription": {
+      "id": "uuid-da-prescricao",
+      "companyId": "uuid-da-empresa",
+      "residentId": "uuid-do-residente",
+      "medicationId": "uuid-do-medicamento",
+      "measurementUnitId": "uuid-da-unidade",
+      "dosage": "500",
+      "route": "oral",
+      "frequency": "a cada 8 horas",
+      "intervalHours": 8,
+      "firstScheduledAt": "2026-05-02T08:00:00.000Z",
+      "prescribedBy": "Dr. Carlos Mendes",
+      "startDate": "2026-05-02T00:00:00.000Z",
+      "endDate": null,
+      "isActive": true,
+      "createdAt": "2026-05-02T10:30:00.000Z",
+      "updatedAt": "2026-05-02T10:30:00.000Z",
+      "resident": {
+        "id": "uuid-do-residente",
+        "fullName": "Joao da Silva"
+      },
+      "medication": {
+        "id": "uuid-do-medicamento",
+        "genericName": "Dipirona",
+        "brandName": "Novalgina"
+      },
+      "measurementUnit": {
+        "id": "uuid-da-unidade",
+        "name": "miligrama",
+        "abbreviation": "mg"
+      }
     },
-    "medication": {
-      "id": "uuid-do-medicamento",
-      "genericName": "Dipirona",
-      "brandName": "Novalgina"
-    },
-    "measurementUnit": {
-      "id": "uuid-da-unidade",
-      "name": "miligrama",
-      "abbreviation": "mg"
+    "generatedAdministrations": {
+      "count": 21,
+      "periodStart": "2026-05-02T08:00:00.000Z",
+      "periodEnd": "2026-05-09T08:00:00.000Z"
     }
   }
 }
@@ -338,6 +395,8 @@ Body:
       "dosage": "500",
       "route": "oral",
       "frequency": "a cada 8 horas",
+      "intervalHours": 8,
+      "firstScheduledAt": "2026-05-02T08:00:00.000Z",
       "prescribedBy": "Dr. Carlos Mendes",
       "startDate": "2026-05-01T00:00:00.000Z",
       "endDate": null,
@@ -456,6 +515,8 @@ Body:
     "dosage": "500",
     "route": "oral",
     "frequency": "a cada 8 horas",
+    "intervalHours": 8,
+    "firstScheduledAt": "2026-05-02T08:00:00.000Z",
     "prescribedBy": "Dr. Carlos Mendes",
     "startDate": "2026-05-01T00:00:00.000Z",
     "endDate": null,
@@ -513,7 +574,7 @@ Exemplo para encerrar uma prescricao:
 
 ```json
 {
-  "endDate": "15-05-2026"
+  "endDate": "2026-05-15T23:59:59.000Z"
 }
 ```
 
@@ -529,7 +590,9 @@ Exemplo para limpar a data final:
 
 A API edita a prescricao somente quando ela esta ativa e pertence a empresa do usuario autenticado.
 
-Quando o payload alterar `residentId`, `medicationId` ou `measurementUnitId`, o backend valida novamente as relacoes. Se `endDate` for enviado, ele nao pode ser menor que `startDate`. Em edicao parcial, essa comparacao considera a `startDate` ja cadastrada quando `startDate` nao vier no payload.
+Quando o payload alterar `residentId`, `medicationId` ou `measurementUnitId`, o backend valida novamente as relacoes. Se `endDate` for enviado, ele nao pode ser menor que `startDate`. `firstScheduledAt` tambem nao pode ser menor que `startDate` nem maior que `endDate`, quando `endDate` existir. Em edicao parcial, essas comparacoes consideram os valores ja cadastrados quando eles nao vierem no payload.
+
+Atencao: a geracao automatica de `MedicationAdministration` acontece na criacao da prescricao. Alteracoes posteriores na prescricao nao recalculam administracoes ja criadas.
 
 ### Exemplo com Axios
 
@@ -705,22 +768,28 @@ Body:
 
 Mensagens possiveis:
 
-| Campo               | Mensagem possivel                                |
-| ------------------- | ------------------------------------------------ |
-| `residentId`        | `Residente é obrigatório`                        |
-| `medicationId`      | `Medicamento é obrigatório`                      |
-| `measurementUnitId` | `Unidade de medida é obrigatória`                |
-| `dosage`            | `Dosagem é obrigatória`                          |
-| `route`             | `Forma de consumo é obrigatória`                 |
-| `frequency`         | `Frequência é obrigatória`                       |
-| `prescribedBy`      | `Prescritor é obrigatório`                       |
-| `startDate`         | `Data de início é obrigatória`                   |
-| `startDate`         | `Data de início deve estar no formato DD-MM-AAAA` |
-| `startDate`         | `Data de início deve ser uma data válida`        |
-| `endDate`           | `Data final deve estar no formato DD-MM-AAAA`    |
-| `endDate`           | `Data final deve ser uma data válida`            |
-| `endDate`           | `Data final não pode ser menor que data de inicio` |
-| `prescription`      | `Informe ao menos um campo para atualizar`       |
+| Campo               | Mensagem possivel                                  |
+| ------------------- | -------------------------------------------------- |
+| `role`              | `Apenas administradores podem cadastrar prescrições` |
+| `residentId`        | `residentId deve ser um UUID válido`               |
+| `medicationId`      | `medicationId deve ser um UUID válido`             |
+| `measurementUnitId` | `measurementUnitId deve ser um UUID válido`        |
+| `dosage`            | `Dosagem é obrigatória`                            |
+| `route`             | `Forma de consumo é obrigatória`                   |
+| `frequency`         | `Frequência é obrigatória`                         |
+| `intervalHours`     | `intervalHours é obrigatório`                      |
+| `intervalHours`     | `intervalHours deve ser um número inteiro`         |
+| `intervalHours`     | `intervalHours deve ser maior que zero`            |
+| `firstScheduledAt`  | `firstScheduledAt é obrigatório`                   |
+| `firstScheduledAt`  | `firstScheduledAt deve estar em formato ISO`       |
+| `firstScheduledAt`  | `firstScheduledAt não pode ser menor que startDate` |
+| `firstScheduledAt`  | `firstScheduledAt não pode ser maior que endDate`  |
+| `prescribedBy`      | `Prescritor é obrigatório`                         |
+| `startDate`         | `startDate é obrigatório`                          |
+| `startDate`         | `startDate deve estar em formato ISO`              |
+| `endDate`           | `endDate deve estar em formato ISO`                |
+| `endDate`           | `endDate não pode ser menor que startDate`         |
+| `prescription`      | `Informe ao menos um campo para atualizar`         |
 
 ### Registro relacionado nao encontrado
 
@@ -766,6 +835,12 @@ const emptyToNull = (value) => {
   return normalized ? normalized : null;
 };
 
+const toIsoDateTime = ({ date, time = "00:00" }) => {
+  if (!date) return "";
+
+  return new Date(`${date}T${time}:00`).toISOString();
+};
+
 export function normalizePrescriptionPayload(form) {
   return {
     residentId: form.residentId,
@@ -774,9 +849,16 @@ export function normalizePrescriptionPayload(form) {
     dosage: form.dosage.trim(),
     route: form.route.trim(),
     frequency: form.frequency.trim(),
+    intervalHours: Number(form.intervalHours),
+    firstScheduledAt: toIsoDateTime({
+      date: form.firstScheduledDate,
+      time: form.firstScheduledTime,
+    }),
     prescribedBy: form.prescribedBy.trim(),
-    startDate: form.startDate,
-    endDate: emptyToUndefined(form.endDate),
+    startDate: toIsoDateTime({ date: form.startDate }),
+    endDate: form.endDate
+      ? toIsoDateTime({ date: form.endDate, time: "23:59" })
+      : undefined,
   };
 }
 
@@ -788,8 +870,10 @@ export function normalizePrescriptionUpdatePayload(form) {
     dosage: form.dosage.trim(),
     route: form.route.trim(),
     frequency: form.frequency.trim(),
+    intervalHours: form.intervalHours ? Number(form.intervalHours) : undefined,
+    firstScheduledAt: form.firstScheduledAt?.toISOString(),
     prescribedBy: form.prescribedBy.trim(),
-    startDate: form.startDate,
+    startDate: form.startDate?.toISOString(),
     endDate: emptyToNull(form.endDate),
   };
 }
@@ -800,7 +884,7 @@ export async function createPrescription(form) {
     normalizePrescriptionPayload(form),
   );
 
-  return data.prescription;
+  return data.data;
 }
 
 export async function listPrescriptions() {
@@ -844,7 +928,8 @@ Para as telas de prescricoes, trate pelo menos estes estados:
 - carregando durante a busca dos detalhes de uma prescricao selecionada;
 - carregando os dados auxiliares de residentes, medicamentos e unidades de medida;
 - confirmacao antes de desativar uma prescricao;
-- sucesso com a mensagem `Prescrição cadastrada com sucesso`;
+- sucesso com a mensagem `Prescrição criada com sucesso.`;
+- exibicao opcional da quantidade de administracoes geradas em `data.generatedAdministrations.count`;
 - sucesso com a mensagem `Prescrição atualizada com sucesso`;
 - sucesso com a mensagem `Prescrição desativada com sucesso`;
 - listagem vazia quando `prescriptions` vier como array vazio;

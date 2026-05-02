@@ -3,15 +3,15 @@ import PrescriptionService from "./PrescriptionService.js";
 class PrescriptionController {
   create = async (req, res, next) => {
     try {
-      const prescription = await PrescriptionService.createPrescription(
+      const data = await PrescriptionService.createPrescription(
         req.user,
         req.body,
       );
 
       res.status(201).json({
         success: true,
-        message: "Prescrição cadastrada com sucesso",
-        prescription,
+        message: "Prescrição criada com sucesso.",
+        data,
       });
     } catch (error) {
       next(error);
