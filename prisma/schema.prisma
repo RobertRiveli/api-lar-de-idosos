@@ -176,3 +176,11 @@ enum MedicationAdministrationStatus {
   missed
   canceled
 }
+
+model HealthCondition {
+  id String @id @default(uuid())
+  name String @unique
+  category String
+
+  @@map("health_conditions")
+}
