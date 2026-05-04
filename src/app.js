@@ -10,6 +10,7 @@ import MedicationAdministrationRouter from "./modules/medicationAdministrations/
 import healthConditionRouter from "./modules/healthConditions/healthConditionRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cors from "cors";
+import ResidentConditionRouter from "./modules/residents/residentConditions/ResidentConditionRouter.js";
 
 class App {
   constructor() {
@@ -35,6 +36,7 @@ class App {
     this.app.use("/prescriptions", PrescriptionRouter);
     this.app.use("/medication-administrations", MedicationAdministrationRouter);
     this.app.use("/health-conditions", healthConditionRouter);
+    this.app.use("/resident-conditions", ResidentConditionRouter);
   }
 
   errorMiddleware() {

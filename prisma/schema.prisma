@@ -70,6 +70,7 @@ model Resident {
   updatedAt                 DateTime                   @updatedAt @map("updated_at")
   prescriptions             Prescription[]
   medicationAdministrations MedicationAdministration[]
+  residentConditions        ResidentCondition[]
 
   @@map("residents")
 }
@@ -178,9 +179,24 @@ enum MedicationAdministrationStatus {
 }
 
 model HealthCondition {
-  id String @id @default(uuid())
-  name String @unique
+  id       String @id @default(uuid())
+  name     String @unique
   category String
 
+  residentConditions ResidentCondition[]
+
   @@map("health_conditions")
+}
+
+model ResidentCondition {
+  id                String  @id @default(uuid())
+  residentId        String  @map("resident_id")
+  healthConditionId String  @map("health_condition_id")
+  observations      String?
+
+  resident        Resident        @relation(fields: [residentId], references: [id])
+  healthCondition HealthCondition @relation(fields: [healthConditionId], references: [id])
+
+  @@unique([residentId, healthConditionId])
+  @@map("resident_conditions")
 }

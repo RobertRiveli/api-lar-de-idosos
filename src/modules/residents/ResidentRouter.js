@@ -4,6 +4,7 @@ import PrescriptionController from "../prescriptions/PrescriptionController.js";
 import MedicationAdministrationController from "../medicationAdministrations/MedicationAdministrationController.js";
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import { sanitizeResidentData } from "../../middlewares/sanitizeData.js";
+import ResidentConditionController from "./residentConditions/ResidentConditionController.js";
 
 class ResidentRouter {
   constructor() {
@@ -30,6 +31,11 @@ class ResidentRouter {
       MedicationAdministrationController.listByResident,
     );
     this.router.get("/:id", authMiddleware, ResidentController.show);
+    this.router.get(
+      "/:residentId/conditions",
+      authMiddleware,
+      ResidentConditionController.findManyByResident,
+    );
   }
 }
 
