@@ -43,6 +43,21 @@ export const sanitizeAuthData = (req, res, next) => {
   next();
 };
 
+export const sanitizeFamilyAuthData = (req, res, next) => {
+  const { email, password } = req.body;
+  req.body = {
+    ...req.body,
+    ...(email !== undefined && {
+      email: typeof email === "string" ? email.toLowerCase().trim() : email,
+    }),
+    ...(password !== undefined && {
+      password: typeof password === "string" ? password.trim() : password,
+    }),
+  };
+
+  next();
+};
+
 export const sanitizeResidentData = (req, res, next) => {
   const { cpf } = req.body;
   req.body = {
