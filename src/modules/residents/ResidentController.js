@@ -49,6 +49,23 @@ class ResidentController {
       next(error);
     }
   };
+
+  overview = async (req, res, next) => {
+    try {
+      const companyId = req.user.companyId;
+      const residentId = req.params.residentId;
+
+      const residentOverview = await ResidentService.getResidentDetails(
+        residentId,
+        companyId,
+        req.user,
+      );
+
+      res.status(200).json({ success: true, residentOverview });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default new ResidentController();

@@ -1,7 +1,12 @@
 import ResidentRepository from "./ResidentRepository.js";
 import ValidationError from "../../errors/ValidationError.js";
 import residentSchema from "../../validators/residentValidator.js";
+import NotFoundError from "../../errors/NotFoundError.js";
 import ConflictError from "../../errors/ConflictError.js";
+import CompanyService from "../companies/CompanyService.js";
+import ResidentConditionService from "./residentConditions/ResidentConditionService.js";
+import PrescriptionService from "../prescriptions/PrescriptionService.js";
+import MedicationAdministrationService from "../medicationAdministrations/MedicationAdministrationService.js";
 
 class ResidentService {
   async create(residentData, companyId, userRole) {
@@ -43,6 +48,37 @@ class ResidentService {
     }
 
     return resident;
+  }
+
+  async getResidentDetails(residentId, companyId, user) {
+    const resident = await this.exists(residentId, companyId);
+
+    const [residentHealthConditions, residentPrescriptions, administrations] =
+      await Promise.all([
+        ResidentConditionService.findManyByResident(residentId),
+        PrescriptionService.listPrescriptionsByResident(user, residentId),
+        MedicationAdministrationService.listResidentAdministrations(
+          user,
+          residentId,
+        ),
+      ]);
+
+    const residentOverview = {
+      resident,
+      healthConditions: residentHealthConditions,
+      prescriptions: residentPrescriptions,
+      administrations,
+    };
+
+    return residentOverview;
+  }
+
+  async exists(residentId, companyId) {
+    const residentExists = await this.getResidentById(residentId, companyId);
+
+    if (!residentExists) throw new NotFoundError("Residente não encontrado");
+
+    return residentExists;
   }
 
   validateResidentData(residentData) {

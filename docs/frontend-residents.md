@@ -10,7 +10,8 @@ Funcionalidades disponiveis:
 
 - cadastrar residente;
 - listar residentes ativos da empresa;
-- buscar os detalhes de um residente ativo.
+- buscar os detalhes de um residente ativo;
+- obter uma visao geral do residente com dados cadastrais, condicoes, prescricoes e administracoes.
 
 ## Base da API
 
@@ -62,19 +63,19 @@ api.interceptors.request.use((config) => {
 
 Campos retornados pela API:
 
-| Campo           | Tipo             | Descricao                                      |
-| --------------- | ---------------- | ---------------------------------------------- |
-| `id`            | string           | ID do residente.                               |
-| `companyId`     | string           | ID da empresa vinculada ao residente.          |
-| `fullName`      | string           | Nome completo do residente.                    |
+| Campo           | Tipo             | Descricao                                       |
+| --------------- | ---------------- | ----------------------------------------------- |
+| `id`            | string           | ID do residente.                                |
+| `companyId`     | string           | ID da empresa vinculada ao residente.           |
+| `fullName`      | string           | Nome completo do residente.                     |
 | `cpf`           | string ou `null` | CPF do residente. Pode ser omitido no cadastro. |
-| `birthDate`     | string           | Data de nascimento em formato ISO na resposta. |
-| `gender`        | string ou `null` | Genero informado no cadastro.                  |
-| `bloodType`     | string ou `null` | Tipo sanguineo informado no cadastro.          |
-| `admissionDate` | string           | Data de admissao em formato ISO na resposta.   |
-| `status`        | string ou `null` | Status do residente. Padrao: `active`.         |
-| `createdAt`     | string           | Data de criacao do registro.                   |
-| `updatedAt`     | string           | Data da ultima atualizacao do registro.        |
+| `birthDate`     | string           | Data de nascimento em formato ISO na resposta.  |
+| `gender`        | string ou `null` | Genero informado no cadastro.                   |
+| `bloodType`     | string ou `null` | Tipo sanguineo informado no cadastro.           |
+| `admissionDate` | string           | Data de admissao em formato ISO na resposta.    |
+| `status`        | string ou `null` | Status do residente. Padrao: `active`.          |
+| `createdAt`     | string           | Data de criacao do registro.                    |
+| `updatedAt`     | string           | Data da ultima atualizacao do registro.         |
 
 ## Normalizacao recomendada
 
@@ -123,22 +124,21 @@ Contrato atual da API:
   "birthDate": "10-03-1940",
   "gender": "male",
   "bloodType": "O+",
-  "admissionDate": "26-04-2026",
-  "status": "active"
+  "admissionDate": "26-04-2026"
 }
 ```
 
 ### Campos do cadastro
 
-| Campo           | Tipo   | Obrigatorio | Regra                                                   |
-| --------------- | ------ | ----------- | ------------------------------------------------------- |
-| `fullName`      | string | Sim         | Nome com 3 a 160 caracteres.                            |
-| `cpf`           | string | Nao         | CPF valido. Enviar apenas numeros quando preenchido.    |
-| `birthDate`     | string | Sim         | Data no formato `DD-MM-YYYY`.                           |
-| `gender`        | string | Nao         | Texto livre. Use valores padronizados no frontend.      |
-| `bloodType`     | string | Nao         | Texto livre. Use valores padronizados no frontend.      |
-| `admissionDate` | string | Sim         | Data de admissao preenchida.                            |
-| `status`        | string | Nao         | Quando omitido, o banco usa `active` como padrao.       |
+| Campo           | Tipo   | Obrigatorio | Regra                                                |
+| --------------- | ------ | ----------- | ---------------------------------------------------- |
+| `fullName`      | string | Sim         | Nome com 3 a 160 caracteres.                         |
+| `cpf`           | string | Nao         | CPF valido. Enviar apenas numeros quando preenchido. |
+| `birthDate`     | string | Sim         | Data no formato `DD-MM-YYYY`.                        |
+| `gender`        | string | Nao         | Texto livre. Use valores padronizados no frontend.   |
+| `bloodType`     | string | Nao         | Texto livre. Use valores padronizados no frontend.   |
+| `admissionDate` | string | Sim         | Data de admissao preenchida.                         |
+| `status`        | string | Nao         | Quando omitido, o banco usa `active` como padrao.    |
 
 ### Observacao sobre datas
 
@@ -284,14 +284,14 @@ Body:
 
 Mensagens possiveis:
 
-| Campo           | Mensagem possivel                                             |
-| --------------- | ------------------------------------------------------------- |
-| `fullName`      | `O nome deve ter pelo menos 3 caracteres`                     |
-| `fullName`      | `O nome deve ter no maximo 160 caracteres`                    |
-| `cpf`           | `CPF invalido`                                                |
-| `birthDate`     | `A data de nascimento e obrigatoria`                          |
-| `birthDate`     | `A data de nascimento deve estar no formato DD-MM-YYYY`       |
-| `admissionDate` | `A data de admissao e obrigatoria`                            |
+| Campo           | Mensagem possivel                                       |
+| --------------- | ------------------------------------------------------- |
+| `fullName`      | `O nome deve ter pelo menos 3 caracteres`               |
+| `fullName`      | `O nome deve ter no maximo 160 caracteres`              |
+| `cpf`           | `CPF invalido`                                          |
+| `birthDate`     | `A data de nascimento e obrigatoria`                    |
+| `birthDate`     | `A data de nascimento deve estar no formato DD-MM-YYYY` |
+| `admissionDate` | `A data de admissao e obrigatoria`                      |
 
 #### CPF ja cadastrado
 
@@ -580,6 +580,258 @@ Body:
 }
 ```
 
+## Overview do residente
+
+Use esta funcao para montar uma tela de prontuario, painel ou resumo rapido do residente. Ela evita que o frontend precise disparar chamadas separadas para dados cadastrais, condicoes de saude, prescricoes e administracoes.
+
+### Endpoint
+
+```http
+GET /residents/:residentId/overview
+Authorization: Bearer <token>
+```
+
+Exemplo:
+
+```txt
+GET /residents/9f2dddc8-51e2-4a6c-9f74-1d4d08f0c5a1/overview
+```
+
+### Parametros de rota
+
+| Parametro    | Tipo   | Obrigatorio | Descricao        |
+| ------------ | ------ | ----------- | ---------------- |
+| `residentId` | string | Sim         | ID do residente. |
+
+### Comportamento da API
+
+A API primeiro valida se o residente existe, esta ativo e pertence a empresa do usuario autenticado. Depois retorna:
+
+- `resident`: dados cadastrais do residente;
+- `healthConditions`: condicoes de saude vinculadas ao residente;
+- `prescriptions`: prescricoes ativas do residente;
+- `administrations`: administracoes de medicamentos do residente.
+
+Se o residente existir em outra empresa, estiver inativo ou nao existir, a resposta sera `Residente nao encontrado`.
+
+### Exemplo com fetch
+
+```js
+async function getResidentOverview(residentId) {
+  const token = localStorage.getItem("accessToken");
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/residents/${residentId}/overview`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data.residentOverview;
+}
+```
+
+### Exemplo com Axios
+
+```js
+export async function getResidentOverview(residentId) {
+  const { data } = await api.get(`/residents/${residentId}/overview`);
+
+  return data.residentOverview;
+}
+```
+
+### Modelo do overview
+
+| Campo              | Tipo   | Descricao                                                                          |
+| ------------------ | ------ | ---------------------------------------------------------------------------------- |
+| `resident`         | object | Mesmo modelo retornado em `GET /residents/:id`.                                    |
+| `healthConditions` | array  | Mesma lista retornada em `GET /residents/:residentId/conditions`.                  |
+| `prescriptions`    | array  | Mesma lista retornada em `GET /residents/:residentId/prescriptions`.               |
+| `administrations`  | array  | Mesma lista retornada em `GET /residents/:residentId/medication-administrations`.  |
+
+### Resposta de sucesso
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "success": true,
+  "residentOverview": {
+    "resident": {
+      "id": "uuid-do-residente",
+      "companyId": "uuid-da-empresa",
+      "fullName": "Ana Maria",
+      "cpf": "12345678909",
+      "birthDate": "1940-03-10T00:00:00.000Z",
+      "gender": "female",
+      "bloodType": "A+",
+      "admissionDate": "2026-04-26T00:00:00.000Z",
+      "status": "active",
+      "createdAt": "2026-04-26T10:30:00.000Z",
+      "updatedAt": "2026-04-26T10:30:00.000Z"
+    },
+    "healthConditions": [
+      {
+        "id": "uuid-do-vinculo",
+        "residentId": "uuid-do-residente",
+        "healthConditionId": "uuid-da-condicao",
+        "observations": "Controlar dieta e observar reacoes.",
+        "healthCondition": {
+          "id": "uuid-da-condicao",
+          "name": "Hipertensao",
+          "category": "Cardiovascular"
+        }
+      }
+    ],
+    "prescriptions": [
+      {
+        "id": "uuid-da-prescricao",
+        "companyId": "uuid-da-empresa",
+        "residentId": "uuid-do-residente",
+        "medicationId": "uuid-do-medicamento",
+        "measurementUnitId": "uuid-da-unidade",
+        "dosage": "500",
+        "route": "oral",
+        "frequency": "a cada 8 horas",
+        "intervalHours": 8,
+        "firstScheduledAt": "2026-05-02T08:00:00.000Z",
+        "prescribedBy": "Dr. Carlos Mendes",
+        "startDate": "2026-05-01T00:00:00.000Z",
+        "endDate": null,
+        "isActive": true,
+        "resident": {
+          "id": "uuid-do-residente",
+          "fullName": "Ana Maria"
+        },
+        "medication": {
+          "id": "uuid-do-medicamento",
+          "genericName": "Dipirona",
+          "brandName": "Novalgina"
+        },
+        "measurementUnit": {
+          "id": "uuid-da-unidade",
+          "name": "miligrama",
+          "abbreviation": "mg"
+        }
+      }
+    ],
+    "administrations": [
+      {
+        "id": "uuid-da-administracao",
+        "scheduledAt": "2026-05-02T08:00:00.000Z",
+        "administeredAt": null,
+        "status": "PENDING",
+        "resident": {
+          "id": "uuid-do-residente",
+          "fullName": "Ana Maria"
+        },
+        "medication": {
+          "id": "uuid-do-medicamento",
+          "genericName": "Dipirona",
+          "brandName": "Novalgina"
+        },
+        "measurementUnit": {
+          "id": "uuid-da-unidade",
+          "name": "miligrama",
+          "abbreviation": "mg"
+        },
+        "prescription": {
+          "id": "uuid-da-prescricao",
+          "dosage": "500",
+          "route": "oral",
+          "frequency": "a cada 8 horas"
+        },
+        "caregiver": null,
+        "notes": null,
+        "reason": null
+      }
+    ]
+  }
+}
+```
+
+Quando o residente nao tiver condicoes, prescricoes ou administracoes, os campos correspondentes retornam arrays vazios:
+
+```json
+{
+  "success": true,
+  "residentOverview": {
+    "resident": {
+      "id": "uuid-do-residente",
+      "companyId": "uuid-da-empresa",
+      "fullName": "Ana Maria",
+      "cpf": null,
+      "birthDate": "1940-03-10T00:00:00.000Z",
+      "gender": null,
+      "bloodType": null,
+      "admissionDate": "2026-04-26T00:00:00.000Z",
+      "status": "active",
+      "createdAt": "2026-04-26T10:30:00.000Z",
+      "updatedAt": "2026-04-26T10:30:00.000Z"
+    },
+    "healthConditions": [],
+    "prescriptions": [],
+    "administrations": []
+  }
+}
+```
+
+### Uso sugerido na tela
+
+```js
+import { useEffect, useState } from "react";
+
+export function ResidentOverviewPage({ residentId }) {
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadOverview() {
+      try {
+        const data = await getResidentOverview(residentId);
+        setOverview(data);
+      } catch (error) {
+        setError("Nao foi possivel carregar a visao geral do residente.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadOverview();
+  }, [residentId]);
+
+  if (loading) return <p>Carregando...</p>;
+  if (error) return <p>{error}</p>;
+  if (!overview) return null;
+
+  return (
+    <section>
+      <h1>{overview.resident.fullName}</h1>
+      <p>Condicoes: {overview.healthConditions.length}</p>
+      <p>Prescricoes: {overview.prescriptions.length}</p>
+      <p>Administracoes: {overview.administrations.length}</p>
+    </section>
+  );
+}
+```
+
 ## Erros de autenticacao
 
 Todas as rotas de residentes podem retornar erros de token.
@@ -705,6 +957,7 @@ function handleResidentApiError(error) {
 - Tratar erros de `token` removendo a sessao local e redirecionando para login.
 - Na listagem, preparar estado vazio quando `residents` vier como array vazio.
 - Na tela de detalhes, tratar `resident: "Residente nao encontrado"` como pagina nao encontrada ou aviso de registro indisponivel.
+- No overview, preparar estado vazio para `healthConditions`, `prescriptions` e `administrations`.
 
 ## Modelo de estado sugerido
 

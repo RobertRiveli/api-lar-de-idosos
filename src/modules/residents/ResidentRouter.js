@@ -36,6 +36,12 @@ class ResidentRouter {
       authMiddleware,
       ResidentConditionController.findManyByResident,
     );
+
+    this.router.get(
+      "/:residentId/overview",
+      authMiddleware,
+      ResidentController.overview,
+    );
   }
 }
 
