@@ -8,6 +8,7 @@ import MeasurementUnitRouter from "./modules/measurementUnits/MeasurementUnitRou
 import PrescriptionRouter from "./modules/prescriptions/PrescriptionRouter.js";
 import MedicationAdministrationRouter from "./modules/medicationAdministrations/MedicationAdministrationRouter.js";
 import healthConditionRouter from "./modules/healthConditions/healthConditionRouter.js";
+import FamilyMemberRouter from "./modules/familyMember/FamilyMemberRouter.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cors from "cors";
 import ResidentConditionRouter from "./modules/residents/residentConditions/ResidentConditionRouter.js";
@@ -37,6 +38,7 @@ class App {
     this.app.use("/medication-administrations", MedicationAdministrationRouter);
     this.app.use("/health-conditions", healthConditionRouter);
     this.app.use("/resident-conditions", ResidentConditionRouter);
+    this.app.use("/family-members", FamilyMemberRouter);
   }
 
   errorMiddleware() {

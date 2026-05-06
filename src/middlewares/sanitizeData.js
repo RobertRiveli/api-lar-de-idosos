@@ -52,3 +52,23 @@ export const sanitizeResidentData = (req, res, next) => {
 
   next();
 };
+
+export const sanitizeFamilyMemberData = (req, res, next) => {
+  const { fullName, email, cpf, phone } = req.body;
+  const cleanCpf = typeof cpf === "string" ? cleanNumberFields(cpf) : cpf;
+  const cleanPhone = typeof phone === "string" ? cleanNumberFields(phone) : phone;
+
+  req.body = {
+    ...req.body,
+    ...(fullName !== undefined && {
+      fullName: typeof fullName === "string" ? fullName.trim() : fullName,
+    }),
+    ...(email !== undefined && {
+      email: typeof email === "string" ? email.toLowerCase().trim() : email,
+    }),
+    ...(cpf !== undefined && { cpf: cleanCpf }),
+    ...(phone !== undefined && { phone: cleanPhone || undefined }),
+  };
+
+  next();
+};
