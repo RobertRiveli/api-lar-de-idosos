@@ -49,6 +49,20 @@ model User {
   @@map("users")
 }
 
+model FamilyMember {
+  id           String   @id @default(uuid())
+  fullName     String   @map("full_name")
+  email        String   @unique
+  phone        String?
+  cpf          String   @unique
+  passwordHash String   @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("family_members")
+}
+
 enum Role {
   admin
   caregiver
