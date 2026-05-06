@@ -83,7 +83,7 @@ class PrescriptionService {
     );
 
     if (!prescription) {
-      throw new NotFoundError("prescription", "Prescrição não encontrada");
+      throw new NotFoundError("Prescrição não encontrada");
     }
 
     return prescription;
@@ -159,7 +159,7 @@ class PrescriptionService {
     );
 
     if (!resident) {
-      throw new NotFoundError("resident", "Residente não encontrado");
+      throw new NotFoundError("Residente não encontrado");
     }
 
     return resident;
@@ -172,7 +172,7 @@ class PrescriptionService {
     );
 
     if (!medication) {
-      throw new NotFoundError("medication", "Medicamento não encontrado");
+      throw new NotFoundError("Medicamento não encontrado");
     }
 
     return medication;
@@ -183,10 +183,7 @@ class PrescriptionService {
       await MeasurementUnitRepository.findById(measurementUnitId);
 
     if (!measurementUnit) {
-      throw new NotFoundError(
-        "measurementUnit",
-        "Unidade de medida não encontrada",
-      );
+      throw new NotFoundError("Unidade de medida não encontrada");
     }
 
     return measurementUnit;

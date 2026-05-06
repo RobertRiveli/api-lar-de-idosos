@@ -341,10 +341,7 @@ class MedicationAdministrationService {
       );
 
     if (!administration) {
-      throw new NotFoundError(
-        "medicationAdministration",
-        "Administração de medicamento não encontrada",
-      );
+      throw new NotFoundError("Administração de medicamento não encontrada");
     }
 
     return administration;
@@ -358,7 +355,7 @@ class MedicationAdministrationService {
       );
 
     if (!prescription) {
-      throw new NotFoundError("prescription", "Prescrição não encontrada");
+      throw new NotFoundError("Prescrição não encontrada");
     }
 
     return prescription;
@@ -372,7 +369,7 @@ class MedicationAdministrationService {
       );
 
     if (!resident) {
-      throw new NotFoundError("resident", "Residente não encontrado");
+      throw new NotFoundError("Residente não encontrado");
     }
 
     return resident;

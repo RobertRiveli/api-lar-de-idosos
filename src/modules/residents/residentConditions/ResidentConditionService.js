@@ -51,17 +51,11 @@ class ResidentConditionService {
     );
 
     if (!residentCondition) {
-      throw new NotFoundError(
-        "residentCondition",
-        "Condição do residente não encontrada",
-      );
+      throw new NotFoundError("Condição do residente não encontrada");
     }
 
     if (residentCondition.resident.companyId !== companyId) {
-      throw new NotFoundError(
-        "residentCondition",
-        "Condição do residente não encontrada",
-      );
+      throw new NotFoundError("Condição do residente não encontrada");
     }
 
     return await ResidentConditionRepository.delete(parsedParams.id);
@@ -87,7 +81,7 @@ class ResidentConditionService {
     );
 
     if (!resident) {
-      throw new NotFoundError("resident", "Residente não encontrado");
+      throw new NotFoundError("Residente não encontrado");
     }
 
     return resident;
@@ -98,10 +92,7 @@ class ResidentConditionService {
       await healthConditionRepository.findById(healthConditionId);
 
     if (!healthCondition) {
-      throw new NotFoundError(
-        "healthConditionId",
-        "Condição não encontrada",
-      );
+      throw new NotFoundError("Condição não encontrada");
     }
 
     return healthCondition;
