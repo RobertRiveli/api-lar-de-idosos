@@ -1,10 +1,16 @@
-# Cadastro de familiares - Guia para o frontend
+# Família - Guia para o frontend
 
-Este documento descreve como implementar a tela de cadastro de familiares e consumir a API responsável por criar uma conta de familiar.
+Este documento descreve como implementar as telas de cadastro e login de familiares, além de consumir as APIs responsáveis por criar e autenticar a conta do familiar.
 
 ## Visão geral
 
-Nesta etapa ainda não possui login, vínculo com residente ou acesso aos dados do idoso.
+Nesta etapa, a API já permite:
+
+- cadastrar um familiar;
+- autenticar um familiar com e-mail e senha;
+- gerar um JWT próprio para o familiar.
+
+## Cadastro do familiar
 
 O backend executa o cadastro com o seguinte fluxo:
 
@@ -16,7 +22,7 @@ O backend executa o cadastro com o seguinte fluxo:
 6. cria o familiar;
 7. retorna os dados públicos do familiar criado.
 
-## Endpoint
+## Endpoint de cadastro
 
 ```http
 POST /family-members
@@ -31,13 +37,13 @@ http://localhost:<PORT>/family-members
 
 O valor de `PORT` vem da variável de ambiente `PORT` usada pelo backend.
 
-## Autenticação
+## Autenticação do cadastro
 
 Este endpoint não exige token de autenticação. Neste primeiro momento, ele é público porque serve apenas para o familiar criar a própria conta.
 
-O fluxo de login do familiar, código de acesso e vínculo com residente será implementado em etapas futuras.
+Depois do cadastro, o familiar pode fazer login usando `POST /auth/family`.
 
-## Payload
+## Payload de cadastro
 
 ```json
 {
@@ -49,7 +55,7 @@ O fluxo de login do familiar, código de acesso e vínculo com residente será i
 }
 ```
 
-## Campos
+## Campos do cadastro
 
 | Campo      | Tipo   | Obrigatório | Regra                                                                 |
 | ---------- | ------ | ----------- | --------------------------------------------------------------------- |
@@ -185,7 +191,7 @@ A resposta não retorna `password` nem `passwordHash`.
 
 Após um cadastro bem-sucedido, exiba uma mensagem clara para o usuário e direcione para o próximo passo definido pelo produto.
 
-Como ainda não existe login do familiar nesta etapa, uma opção simples é exibir uma confirmação e orientar que o acesso será configurado depois.
+Como o login do familiar já existe, uma opção simples é exibir a confirmação e redirecionar para a tela de login da família.
 
 Exemplo:
 
@@ -196,6 +202,7 @@ try {
   setSuccessMessage(`Cadastro criado para ${familyMember.fullName}.`);
   setFieldErrors({});
   setGlobalError("");
+  navigate("/familia/login");
 } catch (error) {
   handleRegisterFamilyMemberError(error);
 }
@@ -375,9 +382,9 @@ function mapApiErrors(errors) {
 - Exibir erros de campo usando o objeto `errors` retornado pela API.
 - Exibir mensagem geral para erros inesperados ou indisponibilidade do servidor.
 - Desabilitar o botão de envio enquanto a requisição estiver em andamento.
-- Não tentar autenticar o familiar após o cadastro, pois o login ainda não foi implementado.
+- Após cadastro bem-sucedido, redirecionar para a tela de login da família ou para o próximo passo definido pelo produto.
 
-## Modelo de estado sugerido
+## Modelo de estado sugerido para cadastro
 
 ```js
 const initialForm = {
@@ -389,9 +396,397 @@ const initialForm = {
 };
 ```
 
+## Login do familiar
+
+O login do familiar é separado do login de usuários internos da empresa. Usuários internos continuam usando `POST /auth` com CPF e senha. Familiares usam `POST /auth/family` com e-mail e senha.
+
+Em caso de sucesso, a API retorna um JWT que identifica uma conta do tipo familiar. Esse token deve ser usado futuramente nas rotas protegidas da família.
+
+## Endpoint de login
+
+```http
+POST /auth/family
+Content-Type: application/json
+```
+
+Exemplo de base URL em ambiente local:
+
+```txt
+http://localhost:<PORT>/auth/family
+```
+
+## Autenticação do login
+
+Este endpoint não exige token. Ele é responsável por gerar o token da sessão do familiar.
+
+## Payload de login
+
+```json
+{
+  "email": "maria@email.com",
+  "password": "Senha123@"
+}
+```
+
+## Campos do login
+
+| Campo      | Tipo   | Obrigatório | Regra                              |
+| ---------- | ------ | ----------- | ---------------------------------- |
+| `email`    | string | Sim         | E-mail cadastrado para o familiar. |
+| `password` | string | Sim         | Senha cadastrada para o familiar.  |
+
+## Normalização feita pela API no login
+
+Antes de autenticar, o backend aplica uma sanitização no payload:
+
+- `email`: remove espaços no início e no fim e converte para minúsculo;
+- `password`: remove espaços no início e no fim.
+
+Mesmo com essa sanitização, a recomendação é enviar o e-mail normalizado e repassar a senha digitada pelo usuário.
+
+## Exemplo de login com fetch
+
+```js
+async function loginFamilyMember(form) {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/family`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: form.email.trim().toLowerCase(),
+      password: form.password,
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data.data;
+}
+```
+
+## Exemplo de login com Axios
+
+```js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+export async function loginFamilyMember(form) {
+  const { data } = await api.post("/auth/family", {
+    email: form.email.trim().toLowerCase(),
+    password: form.password,
+  });
+
+  return data.data;
+}
+```
+
+## Resposta de sucesso do login
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "success": true,
+  "message": "Login realizado com sucesso",
+  "data": {
+    "token": "jwt.token.aqui",
+    "familyMember": {
+      "id": "9f2dddc8-51e2-4a6c-9f74-1d4d08f0c5a1",
+      "email": "maria@email.com",
+      "fullName": "Maria Oliveira"
+    }
+  }
+}
+```
+
+Campos principais da resposta:
+
+| Campo                        | Descrição                              |
+| ---------------------------- | -------------------------------------- |
+| `data.token`                 | Token JWT da sessão do familiar.       |
+| `data.familyMember.id`       | ID do familiar autenticado.            |
+| `data.familyMember.email`    | E-mail do familiar autenticado.        |
+| `data.familyMember.fullName` | Nome completo do familiar autenticado. |
+
+## Armazenamento do token do familiar
+
+Depois do login, salve o token para usá-lo nas próximas chamadas autenticadas da família.
+
+Use chaves separadas das chaves do login interno para não misturar sessão de funcionário com sessão de familiar.
+
+Exemplo:
+
+```js
+const session = await loginFamilyMember(form);
+
+localStorage.setItem("familyAccessToken", session.token);
+localStorage.setItem("familyMember", JSON.stringify(session.familyMember));
+```
+
+Para sistemas com maior exigência de segurança, prefira armazenar o token em cookie `httpOnly` controlado pelo backend. Como a API atual retorna o token no body, o uso de `localStorage` é a opção mais simples para consumir o contrato atual.
+
+## Enviando o token em rotas protegidas da família
+
+Rotas protegidas da família devem receber o header `Authorization` no formato `Bearer`.
+
+```js
+const token = localStorage.getItem("familyAccessToken");
+
+const response = await fetch(`${import.meta.env.VITE_API_URL}/family-area`, {
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+```
+
+Com Axios:
+
+```js
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("familyAccessToken");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+```
+
+O token do familiar é diferente do token de usuários internos. Um token gerado em `POST /auth` não deve ser usado nas rotas protegidas da família.
+
+## Erros do login
+
+### Erro de validação no login
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "email": "E-mail inválido"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+Exemplos de erros de validação:
+
+| Campo          | Mensagem possível                                                    |
+| -------------- | -------------------------------------------------------------------- |
+| `email`        | `E-mail é obrigatório`, `E-mail inválido`, `Familiar não encontrado` |
+| `password`     | `Senha é obrigatória`, `A senha deve ter mais de 8 caracteres`       |
+| `password`     | `Senha incorreta`                                                    |
+| `familyMember` | `Familiar inativo`                                                   |
+
+### Familiar não encontrado
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "email": "Familiar não encontrado"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+### Senha incorreta
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "password": "Senha incorreta"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+### Familiar inativo
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "familyMember": "Familiar inativo"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+Como `familyMember` não pertence a um input específico, exiba essa mensagem como erro geral do formulário.
+
+## Tratamento de erro no formulário de login
+
+Exemplo:
+
+```js
+function normalizeFamilyLoginErrors(errors) {
+  if (errors?.familyMember) {
+    return {
+      fieldErrors: {},
+      globalError: errors.familyMember,
+    };
+  }
+
+  return {
+    fieldErrors: errors ?? {},
+    globalError: "",
+  };
+}
+
+function handleFamilyLoginError(error) {
+  if (error.errorType === "VALIDATION_ERROR") {
+    const normalized = normalizeFamilyLoginErrors(error.errors);
+
+    setFieldErrors(normalized.fieldErrors);
+    setGlobalError(normalized.globalError);
+    return;
+  }
+
+  setFieldErrors({});
+  setGlobalError("Não foi possível entrar. Tente novamente.");
+}
+```
+
+Exemplo de uso completo:
+
+```js
+async function handleFamilyLoginSubmit(event) {
+  event.preventDefault();
+  setIsSubmitting(true);
+  setFieldErrors({});
+  setGlobalError("");
+  setSuccessMessage("");
+
+  try {
+    const session = await loginFamilyMember(form);
+
+    localStorage.setItem("familyAccessToken", session.token);
+    localStorage.setItem("familyMember", JSON.stringify(session.familyMember));
+
+    setSuccessMessage("Login realizado com sucesso.");
+    navigate("/familia");
+  } catch (error) {
+    handleFamilyLoginError(error);
+  } finally {
+    setIsSubmitting(false);
+  }
+}
+```
+
+## Erros em rotas protegidas da família
+
+Quando uma rota protegida usar o middleware de autenticação da família, erros de token também seguem o padrão de validação.
+
+Exemplo de token ausente:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "token": "Token não fornecido"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+Mensagens possíveis para `token`:
+
+| Mensagem                       | Quando acontece                               |
+| ------------------------------ | --------------------------------------------- |
+| `Token não fornecido`          | Header `Authorization` ausente.               |
+| `Formato de token inválido`    | Header não está no formato `Bearer <token>`.  |
+| `Token inválido`               | Token inválido ou malformado.                 |
+| `Token expirado`               | Token válido, mas expirado.                   |
+| `Token ainda não está ativo`   | Token ainda não pode ser usado.               |
+| `Token inválido para familiar` | Token existe, mas não pertence a um familiar. |
+
+Para esses casos, a recomendação é limpar a sessão local do familiar e redirecionar para o login quando o token estiver ausente, inválido ou expirado.
+
+```js
+function logoutFamilyMember() {
+  localStorage.removeItem("familyAccessToken");
+  localStorage.removeItem("familyMember");
+  navigate("/familia/login");
+}
+```
+
+## Checklist para a tela de login
+
+- Converter e-mail para minúsculo antes do envio.
+- Remover espaços no início e fim do e-mail.
+- Exigir e-mail e senha preenchidos antes de chamar a API.
+- Exibir erros de `email` e `password` junto aos campos.
+- Exibir erro de `familyMember` como mensagem geral.
+- Desabilitar o botão de envio enquanto a requisição estiver em andamento.
+- Salvar `data.token` em uma chave própria, como `familyAccessToken`.
+- Salvar `data.familyMember` separado dos dados do usuário interno.
+- Enviar `Authorization: Bearer <familyAccessToken>` nas rotas protegidas da família.
+- Remover token e familiar local no logout.
+
+## Modelo de estado sugerido para login
+
+```js
+const initialLoginForm = {
+  email: "",
+  password: "",
+};
+```
+
 ## Observações importantes
 
-- Este cadastro não cria registro na tabela `User`.
-- Este cadastro não vincula o familiar a um residente.
-- Este cadastro não libera visualização de dados do residente.
-- O CPF de exemplos como `12345678900` pode falhar se a API validar CPF real. Use CPFs válidos em testes automatizados e ambientes de desenvolvimento.
+- O login do familiar não deve usar `POST /auth`, pois esse endpoint é reservado para usuários internos autenticados com CPF.
+
+- O CPF de exemplos como `12345678900` pode falhar se a API validar CPF real. Use CPFs válidos em testes.
