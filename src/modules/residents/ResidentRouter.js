@@ -21,7 +21,13 @@ class ResidentRouter {
       sanitizeResidentData,
       ResidentController.create,
     );
-    this.router.get("/", authMiddleware, ResidentController.list);
+    this.router.get(
+      "/",
+      authMiddleware,
+      authorizeRoles("admin"),
+      ResidentController.list,
+    );
+
     this.router.get(
       "/:residentId/prescriptions",
       authMiddleware,
