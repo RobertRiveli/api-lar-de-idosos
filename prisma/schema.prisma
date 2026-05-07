@@ -21,6 +21,7 @@ model Company {
   medications               Medication[]
   prescriptions             Prescription[]
   medicationAdministrations MedicationAdministration[]
+  residentAccessCode        ResidentAccessCode[]
 
   @@map("companies")
 }
@@ -85,6 +86,7 @@ model Resident {
   prescriptions             Prescription[]
   medicationAdministrations MedicationAdministration[]
   residentConditions        ResidentCondition[]
+  acessCodes                ResidentAccessCode[]
 
   @@map("residents")
 }
@@ -213,4 +215,26 @@ model ResidentCondition {
 
   @@unique([residentId, healthConditionId])
   @@map("resident_conditions")
+}
+
+model ResidentAccessCode {
+  id         String @id @default(uuid())
+  residentId String @map("resident_id")
+  companyId  String @map("company_id")
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  resident Resident @relation(fields: [residentId], references: [id])
+
+  code      String 
+  expiresAt DateTime @map("expires_at")
+  maxUses   Int      @map("max_uses")
+  usesCount Int      @default(0) @map("uses_count")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([code])
+  @@index([residentId])
+  @@index([companyId])
+  @@map("resident_access_code")
 }
