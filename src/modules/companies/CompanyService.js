@@ -100,6 +100,14 @@ class CompanyService {
     this.validatePhone(companyData.phone);
   }
 
+  async companyExists(companyId) {
+    const company = await CompanyRepository.findById(companyId);
+
+    if (!company) return false;
+
+    return true;
+  }
+
   validateAdminData(adminData) {
     const validation = userSchema.safeParse(adminData);
 
