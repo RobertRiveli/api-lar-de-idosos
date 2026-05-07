@@ -5,7 +5,8 @@ import MedicationAdministrationController from "../medicationAdministrations/Med
 import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import { sanitizeResidentData } from "../../middlewares/sanitizeData.js";
 import ResidentConditionController from "./residentConditions/ResidentConditionController.js";
-
+import ResidentAccessCodeController from "./residentAccessCode/ResidentAccessCodeController.js";
+import authorizeRoles from "../../middlewares/authorizeRoles.js";
 class ResidentRouter {
   constructor() {
     this.router = Router();
@@ -41,6 +42,13 @@ class ResidentRouter {
       "/:residentId/overview",
       authMiddleware,
       ResidentController.overview,
+    );
+
+    this.router.post(
+      "/:residentId/access-codes",
+      authMiddleware,
+      authorizeRoles("admin"),
+      ResidentAccessCodeController.create,
     );
   }
 }
