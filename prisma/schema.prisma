@@ -61,6 +61,8 @@ model FamilyMember {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  residentAccesses ResidentFamilyAccess[]
+
   @@map("family_members")
 }
 
@@ -87,6 +89,7 @@ model Resident {
   medicationAdministrations MedicationAdministration[]
   residentConditions        ResidentCondition[]
   acessCodes                ResidentAccessCode[]
+  familyAccesses            ResidentFamilyAccess[]
 
   @@map("residents")
 }
@@ -225,7 +228,7 @@ model ResidentAccessCode {
   company  Company  @relation(fields: [companyId], references: [id])
   resident Resident @relation(fields: [residentId], references: [id])
 
-  code      String 
+  code      String
   expiresAt DateTime @map("expires_at")
   maxUses   Int      @map("max_uses")
   usesCount Int      @default(0) @map("uses_count")
@@ -237,4 +240,31 @@ model ResidentAccessCode {
   @@index([residentId])
   @@index([companyId])
   @@map("resident_access_code")
+}
+
+model ResidentFamilyAccess {
+  id             String             @id @default(uuid())
+  residentId     String             @map("resident_id")
+  familyMemberId String             @map("family_member_id")
+  relationship   FamilyRelationship
+  isActive       Boolean            @default(true) @map("is_active")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  resident     Resident     @relation(fields: [residentId], references: [id])
+  familyMember FamilyMember @relation(fields: [familyMemberId], references: [id])
+
+  @@unique([residentId, familyMemberId])
+  @@index([residentId])
+  @@index([familyMemberId])
+  @@map("resident_family_access")
+}
+
+enum FamilyRelationship {
+  filho
+  filha
+  neto
+  neta
+  responsavel
+  outro
 }
