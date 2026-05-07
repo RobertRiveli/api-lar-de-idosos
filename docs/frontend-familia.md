@@ -1,6 +1,6 @@
 # Família - Guia para o frontend
 
-Este documento descreve como implementar as telas de cadastro e login de familiares, além de consumir as APIs responsáveis por criar e autenticar a conta do familiar.
+Este documento descreve como implementar as telas de cadastro, login e vínculo de familiares com residentes, além de consumir as APIs responsáveis por criar, autenticar e liberar acesso do familiar.
 
 ## Visão geral
 
@@ -8,7 +8,10 @@ Nesta etapa, a API já permite:
 
 - cadastrar um familiar;
 - autenticar um familiar com e-mail e senha;
-- gerar um JWT próprio para o familiar.
+- gerar um JWT próprio para o familiar;
+- gerar um código de acesso para um residente usando um usuário interno `admin`;
+- resgatar um código de acesso de residente usando o JWT do familiar;
+- criar o vínculo entre familiar e residente na tabela `ResidentFamilyAccess`.
 
 ## Cadastro do familiar
 
@@ -785,8 +788,820 @@ const initialLoginForm = {
 };
 ```
 
+## Geração do código de acesso do residente
+
+Antes do familiar resgatar um código, um usuário interno da empresa com papel `admin` precisa gerar esse código para um residente.
+
+Essa funcionalidade pertence à área administrativa. Ela não usa o token do familiar:
+
+- o usuário interno faz login em `POST /auth`;
+- o frontend administrativo salva o token interno;
+- o administrador seleciona um residente;
+- o administrador informa o limite de usos;
+- a API gera um código temporário;
+- o código deve ser compartilhado com o familiar por um canal definido pelo produto.
+
+O `companyId` vem do token do usuário interno e o `residentId` vem da URL. Nenhum desses campos deve ser enviado no body.
+
+## Endpoint de geração
+
+```http
+POST /residents/:residentId/access-codes
+Content-Type: application/json
+Authorization: Bearer <internalAccessToken>
+```
+
+Exemplo de base URL em ambiente local:
+
+```txt
+http://localhost:<PORT>/residents/<residentId>/access-codes
+```
+
+## Autenticação da geração
+
+Este endpoint exige token de usuário interno e papel `admin`.
+
+Use o token retornado em `POST /auth`, não o token retornado em `POST /auth/family`.
+
+Se um familiar tentar usar o token dele nesta rota, a API não deve autorizar o acesso, pois a rota usa `authMiddleware` e `authorizeRoles("admin")`.
+
+## Payload de geração
+
+```json
+{
+  "maxUses": 1
+}
+```
+
+## Campos da geração
+
+| Campo     | Tipo   | Obrigatório | Regra sugerida no frontend                         |
+| --------- | ------ | ----------- | -------------------------------------------------- |
+| `maxUses` | number | Sim         | Inteiro maior ou igual a 1.                        |
+
+O backend usa `maxUses` para definir quantas vezes o código poderá ser resgatado. Quando `usesCount` atingir esse limite, o código é desativado.
+
+O backend valida esse campo e aceita número ou string numérica, como `1` ou `"1"`. Valores vazios, textos não numéricos, números decimais ou menores que 1 retornam erro `400`.
+
+## Normalização recomendada na geração
+
+Garanta que `maxUses` seja enviado como número, não como string:
+
+```js
+const payload = {
+  maxUses: Number(form.maxUses),
+};
+```
+
+## Exemplo de geração com fetch
+
+```js
+async function createResidentAccessCode(residentId, form) {
+  const token = localStorage.getItem("internalAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão administrativa não encontrada" },
+    };
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/residents/${residentId}/access-codes`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        maxUses: Number(form.maxUses),
+      }),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data;
+}
+```
+
+## Exemplo de geração com Axios
+
+```js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+export async function createResidentAccessCode(residentId, form) {
+  const token = localStorage.getItem("internalAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão administrativa não encontrada" },
+    };
+  }
+
+  const { data } = await api.post(
+    `/residents/${residentId}/access-codes`,
+    {
+      maxUses: Number(form.maxUses),
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return data;
+}
+```
+
+## Resposta de sucesso da geração
+
+Status HTTP:
+
+```http
+201 Created
+```
+
+Body:
+
+```json
+{
+  "success": true,
+  "message": "Código criado com sucesso",
+  "code": "A8K2P9",
+  "expiresAt": "2026-05-08T00:00:00.000Z",
+  "maxUses": 1,
+  "residentId": "4be87bd3-7966-451f-bc3d-76f9edc034f5"
+}
+```
+
+Campos principais da resposta:
+
+| Campo       | Descrição                                               |
+| ----------- | ------------------------------------------------------- |
+| `code`      | Código que o familiar deve informar no app.             |
+| `expiresAt` | Data e hora de expiração do código.                     |
+| `maxUses`   | Quantidade máxima de resgates permitidos para o código. |
+| `residentId` | ID do residente relacionado ao código.                  |
+
+O código gerado tem 6 caracteres, já vem em maiúsculo e expira 1 dia após a criação.
+
+## Exibindo sucesso na geração
+
+Após gerar o código, mostre o código com destaque e permita copiar ou compartilhar conforme a regra do produto.
+
+Exemplo:
+
+```js
+try {
+  const accessCode = await createResidentAccessCode(residentId, form);
+
+  setGeneratedCode(accessCode.code);
+  setSuccessMessage("Código criado com sucesso.");
+  setFieldErrors({});
+  setGlobalError("");
+} catch (error) {
+  handleCreateResidentAccessCodeError(error);
+}
+```
+
+Sugestão de exibição:
+
+```js
+const expiresAtLabel = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+}).format(new Date(accessCode.expiresAt));
+```
+
+Use essa data para orientar o administrador, por exemplo: `Expira em 08/05/2026, 09:00`.
+
+## Erros da geração
+
+### Token ausente ou inválido
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "token": "Token não fornecido"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+As mensagens possíveis para `token` são as mesmas descritas na seção de rotas protegidas da família, pois os middlewares de autenticação usam o mesmo padrão de erro para token.
+
+### Usuário sem permissão de administrador
+
+Status HTTP:
+
+```http
+403 Forbidden
+```
+
+Body:
+
+```json
+{
+  "message": "Você não tem permissão para acessar este recurso"
+}
+```
+
+Esse erro acontece quando o token interno existe, mas o usuário não tem papel `admin`.
+
+### Empresa relacionada não encontrada
+
+Status HTTP:
+
+```http
+404 Not Found
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Empresa relacionada não encontrada",
+  "errorType": "NOT_FOUND"
+}
+```
+
+### Residente não encontrado
+
+Status HTTP:
+
+```http
+404 Not Found
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Residente não encontrado",
+  "errorType": "NOT_FOUND"
+}
+```
+
+### Payload inválido
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "maxUses": "maxUses deve ser um número"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+Mensagens possíveis para `maxUses`:
+
+| Mensagem                                | Quando acontece                  |
+| --------------------------------------- | -------------------------------- |
+| `maxUses é obrigatório`                 | Campo ausente ou vazio.          |
+| `maxUses deve ser um número`            | Campo enviado com texto inválido. |
+| `maxUses deve ser um número inteiro`    | Campo enviado com número decimal. |
+| `maxUses deve ser maior que zero`       | Campo enviado com valor menor que 1. |
+
+Mesmo com a validação no backend, valide no frontend antes de chamar a API para melhorar a experiência.
+
+Exemplo de validação local:
+
+```js
+function validateAccessCodeForm(form) {
+  const maxUses = Number(form.maxUses);
+
+  if (!Number.isInteger(maxUses) || maxUses < 1) {
+    return {
+      maxUses: "Informe um limite de usos válido.",
+    };
+  }
+
+  return {};
+}
+```
+
+## Tratamento de erro no formulário de geração
+
+Exemplo:
+
+```js
+function handleCreateResidentAccessCodeError(error) {
+  if (error.errorType === "VALIDATION_ERROR") {
+    if (error.errors?.token) {
+      setFieldErrors({});
+      setGlobalError(error.errors.token);
+      return;
+    }
+
+    setFieldErrors(error.errors ?? {});
+    setGlobalError("");
+    return;
+  }
+
+  if (error.message === "Você não tem permissão para acessar este recurso") {
+    setFieldErrors({});
+    setGlobalError(error.message);
+    return;
+  }
+
+  if (error.errorType === "NOT_FOUND") {
+    setFieldErrors({});
+    setGlobalError(error.message);
+    return;
+  }
+
+  setFieldErrors({});
+  setGlobalError("Não foi possível gerar o código. Tente novamente.");
+}
+```
+
+Exemplo de uso completo:
+
+```js
+async function handleCreateAccessCodeSubmit(event) {
+  event.preventDefault();
+  setIsSubmitting(true);
+  setFieldErrors({});
+  setGlobalError("");
+  setSuccessMessage("");
+
+  const localErrors = validateAccessCodeForm(form);
+
+  if (Object.keys(localErrors).length > 0) {
+    setFieldErrors(localErrors);
+    setIsSubmitting(false);
+    return;
+  }
+
+  try {
+    const accessCode = await createResidentAccessCode(residentId, form);
+
+    setGeneratedCode(accessCode.code);
+    setSuccessMessage("Código criado com sucesso.");
+  } catch (error) {
+    handleCreateResidentAccessCodeError(error);
+  } finally {
+    setIsSubmitting(false);
+  }
+}
+```
+
+## Checklist para a tela de geração
+
+- Exigir login de usuário interno antes de exibir a ação.
+- Permitir a ação apenas para usuários com papel `admin`.
+- Enviar `Authorization: Bearer <internalAccessToken>`.
+- Usar `residentId` na URL.
+- Não enviar `residentId` no body.
+- Não enviar `companyId` no body.
+- Enviar `maxUses` como número inteiro maior ou igual a 1.
+- Exibir o código retornado com destaque.
+- Exibir a data de expiração em formato amigável.
+- Desabilitar o botão enquanto a requisição estiver em andamento.
+- Orientar o administrador a compartilhar o código com o familiar.
+
+## Modelo de estado sugerido para geração
+
+```js
+const initialCreateAccessCodeForm = {
+  maxUses: 1,
+};
+```
+
+## Resgate de código de acesso do residente
+
+Depois que o familiar faz login, ele pode informar um código de acesso gerado pelo administrador para se vincular a um residente.
+
+Esse fluxo usa o token retornado em `POST /auth/family`. O frontend não deve enviar `familyMemberId` nem `residentId` no body:
+
+- `familyMemberId` vem do JWT do familiar;
+- `residentId` vem do código encontrado no backend;
+- a rota cria um registro em `ResidentFamilyAccess`;
+- o backend incrementa o uso do código;
+- se o código atingir o limite de usos, ele é desativado.
+
+## Endpoint de resgate
+
+```http
+POST /family-members/access-codes/redeem
+Content-Type: application/json
+Authorization: Bearer <familyAccessToken>
+```
+
+Exemplo de base URL em ambiente local:
+
+```txt
+http://localhost:<PORT>/family-members/access-codes/redeem
+```
+
+## Autenticação do resgate
+
+Este endpoint exige token de familiar. Use o token salvo após o login em `POST /auth/family`.
+
+Não use o token de usuários internos gerado em `POST /auth`, pois essa rota é protegida por `familyAuthMiddleware`.
+
+## Payload de resgate
+
+```json
+{
+  "code": "A8K2P9",
+  "relationship": "filha"
+}
+```
+
+## Campos do resgate
+
+| Campo          | Tipo   | Obrigatório | Regra                                      |
+| -------------- | ------ | ----------- | ------------------------------------------ |
+| `code`         | string | Sim         | Código recebido pelo familiar.             |
+| `relationship` | string | Sim         | Deve ser um valor válido de relacionamento. |
+
+Valores aceitos em `relationship`:
+
+| Valor enviado  | Sugestão de label no frontend |
+| -------------- | ----------------------------- |
+| `filho`        | Filho                         |
+| `filha`        | Filha                         |
+| `neto`         | Neto                          |
+| `neta`         | Neta                          |
+| `responsavel`  | Responsável                   |
+| `outro`        | Outro                         |
+
+## Normalização feita pela API no resgate
+
+Antes de validar, o backend aplica:
+
+- `code`: remove espaços no início e no fim e converte para maiúsculo;
+- `relationship`: remove espaços no início e no fim.
+
+Mesmo assim, normalize no frontend para melhorar a experiência:
+
+```js
+const payload = {
+  code: form.code.trim().toUpperCase(),
+  relationship: form.relationship,
+};
+```
+
+## Exemplo de resgate com fetch
+
+```js
+async function redeemResidentAccessCode(form) {
+  const token = localStorage.getItem("familyAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão do familiar não encontrada" },
+    };
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/family-members/access-codes/redeem`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        code: form.code.trim().toUpperCase(),
+        relationship: form.relationship,
+      }),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data;
+}
+```
+
+## Exemplo de resgate com Axios
+
+```js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+export async function redeemResidentAccessCode(form) {
+  const token = localStorage.getItem("familyAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão do familiar não encontrada" },
+    };
+  }
+
+  const { data } = await api.post(
+    "/family-members/access-codes/redeem",
+    {
+      code: form.code.trim().toUpperCase(),
+      relationship: form.relationship,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return data;
+}
+```
+
+## Resposta de sucesso do resgate
+
+Status HTTP:
+
+```http
+201 Created
+```
+
+Body:
+
+```json
+{
+  "id": "b0712e02-0ad8-4f90-9a23-d418bdcbdb92",
+  "residentId": "4be87bd3-7966-451f-bc3d-76f9edc034f5",
+  "familyMemberId": "9f2dddc8-51e2-4a6c-9f74-1d4d08f0c5a1",
+  "relationship": "filha",
+  "isActive": true,
+  "createdAt": "2026-05-07T00:00:00.000Z"
+}
+```
+
+A resposta não retorna dados sensíveis do familiar, nem dados completos do residente.
+
+## Exibindo sucesso no resgate
+
+Após um resgate bem-sucedido, exiba uma confirmação clara e atualize a área da família conforme o produto.
+
+Exemplo:
+
+```js
+try {
+  const access = await redeemResidentAccessCode(form);
+
+  setSuccessMessage("Acesso ao residente liberado com sucesso.");
+  setFieldErrors({});
+  setGlobalError("");
+  navigate(`/familia/residentes/${access.residentId}`);
+} catch (error) {
+  handleRedeemResidentAccessCodeError(error);
+}
+```
+
+## Erros do resgate
+
+### Erro de validação no resgate
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "code": "Código é obrigatório"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+Exemplos de erros de validação:
+
+| Campo          | Mensagem possível                                      |
+| -------------- | ------------------------------------------------------ |
+| `code`         | `Código é obrigatório`                                 |
+| `relationship` | `Relacionamento é obrigatório`, `Relacionamento inválido` |
+| `token`        | Mensagens de token listadas em rotas protegidas.       |
+
+### Código inexistente
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Código de acesso inválido",
+  "errorType": "INVALID_ACCESS_CODE"
+}
+```
+
+### Código inativo
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Código de acesso inativo",
+  "errorType": "INACTIVE_ACCESS_CODE"
+}
+```
+
+### Código expirado
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Código de acesso expirado",
+  "errorType": "EXPIRED_ACCESS_CODE"
+}
+```
+
+### Código já utilizado
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Código de acesso já utilizado",
+  "errorType": "USED_ACCESS_CODE"
+}
+```
+
+### Familiar já vinculado ao residente
+
+Status HTTP:
+
+```http
+409 Conflict
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Familiar já possui acesso a este residente",
+  "errorType": "RESIDENT_FAMILY_ACCESS_CONFLICT"
+}
+```
+
+## Tratamento de erro no formulário de resgate
+
+Erros de `code` e `relationship` devem aparecer junto aos campos. Erros de `token` e erros de regra de negócio devem aparecer como mensagem geral.
+
+Exemplo:
+
+```js
+function handleRedeemResidentAccessCodeError(error) {
+  if (error.errorType === "VALIDATION_ERROR") {
+    if (error.errors?.token) {
+      setFieldErrors({});
+      setGlobalError(error.errors.token);
+      logoutFamilyMember();
+      return;
+    }
+
+    setFieldErrors(error.errors ?? {});
+    setGlobalError("");
+    return;
+  }
+
+  const knownBusinessErrors = [
+    "INVALID_ACCESS_CODE",
+    "INACTIVE_ACCESS_CODE",
+    "EXPIRED_ACCESS_CODE",
+    "USED_ACCESS_CODE",
+    "RESIDENT_FAMILY_ACCESS_CONFLICT",
+  ];
+
+  if (knownBusinessErrors.includes(error.errorType)) {
+    setFieldErrors({});
+    setGlobalError(error.message);
+    return;
+  }
+
+  setFieldErrors({});
+  setGlobalError("Não foi possível resgatar o código. Tente novamente.");
+}
+```
+
+Exemplo de uso completo:
+
+```js
+async function handleRedeemSubmit(event) {
+  event.preventDefault();
+  setIsSubmitting(true);
+  setFieldErrors({});
+  setGlobalError("");
+  setSuccessMessage("");
+
+  try {
+    const access = await redeemResidentAccessCode(form);
+
+    setSuccessMessage("Acesso ao residente liberado com sucesso.");
+    navigate(`/familia/residentes/${access.residentId}`);
+  } catch (error) {
+    handleRedeemResidentAccessCodeError(error);
+  } finally {
+    setIsSubmitting(false);
+  }
+}
+```
+
+## Checklist para a tela de resgate
+
+- Exigir login do familiar antes de exibir a tela.
+- Enviar `Authorization: Bearer <familyAccessToken>`.
+- Não enviar `familyMemberId` no body.
+- Não enviar `residentId` no body.
+- Converter o código para maiúsculo antes do envio.
+- Exibir `code` e `relationship` como erros de campo quando vierem em `errors`.
+- Exibir erros de token e regra de negócio como mensagem geral.
+- Desabilitar o botão enquanto a requisição estiver em andamento.
+- Após sucesso, mostrar confirmação e atualizar a lista/área de residentes acessíveis.
+
+## Modelo de estado sugerido para resgate
+
+```js
+const initialRedeemForm = {
+  code: "",
+  relationship: "",
+};
+```
+
 ## Observações importantes
 
 - O login do familiar não deve usar `POST /auth`, pois esse endpoint é reservado para usuários internos autenticados com CPF.
 
 - O CPF de exemplos como `12345678900` pode falhar se a API validar CPF real. Use CPFs válidos em testes.
+
+- O vínculo com residente deve ser feito apenas por `POST /family-members/access-codes/redeem`, sempre com token de familiar.

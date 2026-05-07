@@ -6,6 +6,7 @@ import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import { sanitizeResidentData } from "../../middlewares/sanitizeData.js";
 import ResidentConditionController from "./residentConditions/ResidentConditionController.js";
 import ResidentAccessCodeController from "./residentAccessCode/ResidentAccessCodeController.js";
+import { validateCreateResidentAccessCode } from "./residentAccessCode/ResidentAccessCodeSchema.js";
 import authorizeRoles from "../../middlewares/authorizeRoles.js";
 class ResidentRouter {
   constructor() {
@@ -48,6 +49,7 @@ class ResidentRouter {
       "/:residentId/access-codes",
       authMiddleware,
       authorizeRoles("admin"),
+      validateCreateResidentAccessCode,
       ResidentAccessCodeController.create,
     );
   }
