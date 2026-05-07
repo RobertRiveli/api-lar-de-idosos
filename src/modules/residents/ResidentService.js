@@ -44,7 +44,7 @@ class ResidentService {
     );
 
     if (!resident) {
-      throw new ValidationError("resident", "Residente não encontrado");
+      throw new NotFoundError("Residente não encontrado");
     }
 
     return resident;
