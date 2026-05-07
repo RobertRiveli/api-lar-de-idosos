@@ -9,11 +9,7 @@ class FamilyMemberService {
     );
 
     if (familyMemberWithEmail) {
-      throw new ConflictError(
-        "email",
-        "Email já cadastrado",
-        "Email já cadastrado",
-      );
+      throw new ConflictError("email", "Email já cadastrado");
     }
 
     const familyMemberWithCpf = await FamilyMemberRepository.findByCpf(
@@ -21,11 +17,7 @@ class FamilyMemberService {
     );
 
     if (familyMemberWithCpf) {
-      throw new ConflictError(
-        "cpf",
-        "CPF já cadastrado",
-        "CPF já cadastrado",
-      );
+      throw new ConflictError("cpf", "CPF já cadastrado");
     }
 
     const { password, ...familyMemberData } = data;
