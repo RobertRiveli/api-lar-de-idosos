@@ -11,7 +11,9 @@ Nesta etapa, a API já permite:
 - gerar um JWT próprio para o familiar;
 - gerar um código de acesso para um residente usando um usuário interno `admin`;
 - resgatar um código de acesso de residente usando o JWT do familiar;
-- criar o vínculo entre familiar e residente na tabela `ResidentFamilyAccess`.
+- criar o vínculo entre familiar e residente na tabela `ResidentFamilyAccess`;
+- listar os residentes vinculados ao familiar autenticado;
+- buscar os detalhes permitidos de um residente vinculado.
 
 ## Cadastro do familiar
 
@@ -835,9 +837,9 @@ Se um familiar tentar usar o token dele nesta rota, a API não deve autorizar o 
 
 ## Campos da geração
 
-| Campo     | Tipo   | Obrigatório | Regra sugerida no frontend                         |
-| --------- | ------ | ----------- | -------------------------------------------------- |
-| `maxUses` | number | Sim         | Inteiro maior ou igual a 1.                        |
+| Campo     | Tipo   | Obrigatório | Regra sugerida no frontend  |
+| --------- | ------ | ----------- | --------------------------- |
+| `maxUses` | number | Sim         | Inteiro maior ou igual a 1. |
 
 O backend usa `maxUses` para definir quantas vezes o código poderá ser resgatado. Quando `usesCount` atingir esse limite, o código é desativado.
 
@@ -948,11 +950,11 @@ Body:
 
 Campos principais da resposta:
 
-| Campo       | Descrição                                               |
-| ----------- | ------------------------------------------------------- |
-| `code`      | Código que o familiar deve informar no app.             |
-| `expiresAt` | Data e hora de expiração do código.                     |
-| `maxUses`   | Quantidade máxima de resgates permitidos para o código. |
+| Campo        | Descrição                                               |
+| ------------ | ------------------------------------------------------- |
+| `code`       | Código que o familiar deve informar no app.             |
+| `expiresAt`  | Data e hora de expiração do código.                     |
+| `maxUses`    | Quantidade máxima de resgates permitidos para o código. |
 | `residentId` | ID do residente relacionado ao código.                  |
 
 O código gerado tem 6 caracteres, já vem em maiúsculo e expira 1 dia após a criação.
@@ -1089,12 +1091,12 @@ Body:
 
 Mensagens possíveis para `maxUses`:
 
-| Mensagem                                | Quando acontece                  |
-| --------------------------------------- | -------------------------------- |
-| `maxUses é obrigatório`                 | Campo ausente ou vazio.          |
-| `maxUses deve ser um número`            | Campo enviado com texto inválido. |
-| `maxUses deve ser um número inteiro`    | Campo enviado com número decimal. |
-| `maxUses deve ser maior que zero`       | Campo enviado com valor menor que 1. |
+| Mensagem                             | Quando acontece                      |
+| ------------------------------------ | ------------------------------------ |
+| `maxUses é obrigatório`              | Campo ausente ou vazio.              |
+| `maxUses deve ser um número`         | Campo enviado com texto inválido.    |
+| `maxUses deve ser um número inteiro` | Campo enviado com número decimal.    |
+| `maxUses deve ser maior que zero`    | Campo enviado com valor menor que 1. |
 
 Mesmo com a validação no backend, valide no frontend antes de chamar a API para melhorar a experiência.
 
@@ -1245,21 +1247,21 @@ Não use o token de usuários internos gerado em `POST /auth`, pois essa rota é
 
 ## Campos do resgate
 
-| Campo          | Tipo   | Obrigatório | Regra                                      |
-| -------------- | ------ | ----------- | ------------------------------------------ |
-| `code`         | string | Sim         | Código recebido pelo familiar.             |
+| Campo          | Tipo   | Obrigatório | Regra                                       |
+| -------------- | ------ | ----------- | ------------------------------------------- |
+| `code`         | string | Sim         | Código recebido pelo familiar.              |
 | `relationship` | string | Sim         | Deve ser um valor válido de relacionamento. |
 
 Valores aceitos em `relationship`:
 
-| Valor enviado  | Sugestão de label no frontend |
-| -------------- | ----------------------------- |
-| `filho`        | Filho                         |
-| `filha`        | Filha                         |
-| `neto`         | Neto                          |
-| `neta`         | Neta                          |
-| `responsavel`  | Responsável                   |
-| `outro`        | Outro                         |
+| Valor enviado | Sugestão de label no frontend |
+| ------------- | ----------------------------- |
+| `filho`       | Filho                         |
+| `filha`       | Filha                         |
+| `neto`        | Neto                          |
+| `neta`        | Neta                          |
+| `responsavel` | Responsável                   |
+| `outro`       | Outro                         |
 
 ## Normalização feita pela API no resgate
 
@@ -1418,11 +1420,11 @@ Body:
 
 Exemplos de erros de validação:
 
-| Campo          | Mensagem possível                                      |
-| -------------- | ------------------------------------------------------ |
-| `code`         | `Código é obrigatório`                                 |
+| Campo          | Mensagem possível                                         |
+| -------------- | --------------------------------------------------------- |
+| `code`         | `Código é obrigatório`                                    |
 | `relationship` | `Relacionamento é obrigatório`, `Relacionamento inválido` |
-| `token`        | Mensagens de token listadas em rotas protegidas.       |
+| `token`        | Mensagens de token listadas em rotas protegidas.          |
 
 ### Código inexistente
 
@@ -1587,7 +1589,7 @@ async function handleRedeemSubmit(event) {
 - Exibir `code` e `relationship` como erros de campo quando vierem em `errors`.
 - Exibir erros de token e regra de negócio como mensagem geral.
 - Desabilitar o botão enquanto a requisição estiver em andamento.
-- Após sucesso, mostrar confirmação e atualizar a lista/área de residentes acessíveis.
+- Após sucesso, mostrar confirmação e atualizar a lista de residentes vinculados.
 
 ## Modelo de estado sugerido para resgate
 
@@ -1597,6 +1599,372 @@ const initialRedeemForm = {
   relationship: "",
 };
 ```
+
+## Residentes vinculados ao familiar
+
+Depois que o familiar resgata um código com sucesso, ele pode visualizar os residentes aos quais possui acesso.
+
+## Endpoint de listagem de residentes vinculados
+
+```http
+GET /family-members/residents
+Authorization: Bearer <familyAccessToken>
+```
+
+Exemplo de base URL em ambiente local:
+
+```txt
+http://localhost:<PORT>/family-members/residents
+```
+
+## Autenticação da listagem
+
+Este endpoint exige token de familiar. Use o token salvo após o login em `POST /auth/family`.
+
+Não use token de usuário interno. Essa rota usa `familyAuthMiddleware`.
+
+## Exemplo de listagem com fetch
+
+```js
+async function listFamilyResidents() {
+  const token = localStorage.getItem("familyAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão do familiar não encontrada" },
+    };
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/family-members/residents`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data;
+}
+```
+
+## Exemplo de listagem com Axios
+
+```js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+export async function listFamilyResidents() {
+  const token = localStorage.getItem("familyAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão do familiar não encontrada" },
+    };
+  }
+
+  const { data } = await api.get("/family-members/residents", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return data;
+}
+```
+
+## Resposta de sucesso da listagem
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+[
+  {
+    "id": "4be87bd3-7966-451f-bc3d-76f9edc034f5",
+    "fullName": "Antônio Oliveira",
+    "birthDate": "1942-04-12T00:00:00.000Z",
+    "gender": "male",
+    "bloodType": "O+",
+    "admissionDate": "2026-01-10T00:00:00.000Z",
+    "status": "active",
+    "createdAt": "2026-01-10T00:00:00.000Z",
+    "access": {
+      "id": "b0712e02-0ad8-4f90-9a23-d418bdcbdb92",
+      "relationship": "filha",
+      "createdAt": "2026-05-07T00:00:00.000Z"
+    }
+  }
+]
+```
+
+Se o familiar não tiver vínculos ativos, a API retorna uma lista vazia:
+
+```json
+[]
+```
+
+A listagem não retorna `cpf`, `companyId` ou dados sensíveis do familiar.
+
+## Exibindo a listagem no frontend
+
+Use a resposta para montar a tela inicial da área da família, com cards ou linhas de residentes acessíveis.
+
+Exemplo:
+
+```js
+try {
+  const residents = await listFamilyResidents();
+
+  setResidents(residents);
+  setGlobalError("");
+} catch (error) {
+  handleFamilyResidentsError(error);
+}
+```
+
+Se `residents.length === 0`, mostre um estado vazio e ofereça o fluxo para resgatar um código.
+
+## Endpoint de detalhes de um residente vinculado
+
+```http
+GET /family-members/residents/:residentId
+Authorization: Bearer <familyAccessToken>
+```
+
+Exemplo de base URL em ambiente local:
+
+```txt
+http://localhost:<PORT>/family-members/residents/<residentId>
+```
+
+## Autenticação dos detalhes
+
+Este endpoint exige token de familiar.
+
+O acesso ao residente depende apenas de um vínculo ativo em `ResidentFamilyAccess` entre:
+
+- `familyMemberId` do JWT;
+- `residentId` da URL.
+
+Não envie `familyMemberId` no body, params ou query. O único parâmetro da rota de detalhes é `residentId`.
+
+## Exemplo de detalhes com fetch
+
+```js
+async function getFamilyResidentDetails(residentId) {
+  const token = localStorage.getItem("familyAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão do familiar não encontrada" },
+    };
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/family-members/residents/${residentId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data;
+}
+```
+
+## Exemplo de detalhes com Axios
+
+```js
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+});
+
+export async function getFamilyResidentDetails(residentId) {
+  const token = localStorage.getItem("familyAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão do familiar não encontrada" },
+    };
+  }
+
+  const { data } = await api.get(`/family-members/residents/${residentId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return data;
+}
+```
+
+## Resposta de sucesso dos detalhes
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "id": "4be87bd3-7966-451f-bc3d-76f9edc034f5",
+  "fullName": "Antônio Oliveira",
+  "birthDate": "1942-04-12T00:00:00.000Z",
+  "gender": "male",
+  "bloodType": "O+",
+  "admissionDate": "2026-01-10T00:00:00.000Z",
+  "status": "active",
+  "createdAt": "2026-01-10T00:00:00.000Z",
+  "updatedAt": "2026-05-07T00:00:00.000Z",
+  "access": {
+    "id": "b0712e02-0ad8-4f90-9a23-d418bdcbdb92",
+    "relationship": "filha",
+    "createdAt": "2026-05-07T00:00:00.000Z"
+  }
+}
+```
+
+Os detalhes também não retornam `cpf`, `companyId` ou dados sensíveis do familiar.
+
+## Erros das rotas de residentes vinculados
+
+### Token ausente ou inválido
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "token": "Token não fornecido"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+As mensagens possíveis para `token` são as mesmas descritas na seção de rotas protegidas.
+
+### residentId inválido
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "residentId": "residentId deve ser um UUID válido"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+Esse erro vale apenas para `GET /family-members/residents/:residentId`.
+
+### Familiar sem acesso ao residente
+
+Status HTTP:
+
+```http
+403 Forbidden
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Você não possui acesso a este residente",
+  "errorType": "RESIDENT_ACCESS_FORBIDDEN"
+}
+```
+
+Esse erro acontece quando não existe vínculo ativo em `ResidentFamilyAccess` para o familiar autenticado e o residente informado.
+
+## Tratamento de erro para residentes vinculados
+
+Exemplo:
+
+```js
+function handleFamilyResidentsError(error) {
+  if (error.errorType === "VALIDATION_ERROR") {
+    if (error.errors?.token) {
+      setGlobalError(error.errors.token);
+      logoutFamilyMember();
+      return;
+    }
+
+    setFieldErrors(error.errors ?? {});
+    setGlobalError("");
+    return;
+  }
+
+  if (error.errorType === "RESIDENT_ACCESS_FORBIDDEN") {
+    setFieldErrors({});
+    setGlobalError(error.message);
+    navigate("/familia/residentes");
+    return;
+  }
+
+  setFieldErrors({});
+  setGlobalError("Não foi possível carregar os residentes. Tente novamente.");
+}
+```
+
+## Checklist para a tela de residentes vinculados
+
+- Exigir login do familiar antes de carregar a tela.
+- Enviar `Authorization: Bearer <familyAccessToken>`.
+- Não enviar `familyMemberId`.
+- Para listagem, chamar `GET /family-members/residents`.
+- Para detalhes, chamar `GET /family-members/residents/:residentId`.
+- Tratar `[]` como estado vazio.
+- Tratar `RESIDENT_ACCESS_FORBIDDEN` como acesso negado e voltar para a listagem.
+- Não depender de `companyId` no frontend para autorizar familiar.
 
 ## Observações importantes
 
