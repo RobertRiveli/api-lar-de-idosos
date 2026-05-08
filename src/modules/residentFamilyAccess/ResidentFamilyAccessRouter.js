@@ -10,6 +10,12 @@ class ResidentFamilyAccessRouter {
   }
 
   setupRoutes() {
+    this.router.get(
+      "/residents",
+      familyAuthMiddleware,
+      ResidentFamilyAccessController.listResidents,
+    );
+
     this.router.post(
       "/access-codes/redeem",
       familyAuthMiddleware,

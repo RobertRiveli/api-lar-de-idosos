@@ -4,6 +4,15 @@ import ResidentAccessCodeRepository from "../residents/residentAccessCode/Reside
 import ResidentFamilyAccessRepository from "./ResidentFamilyAccessRepository.js";
 
 class ResidentFamilyAccessService {
+  async listResidentsForFamilyMember(familyMemberId) {
+    const accesses =
+      await ResidentFamilyAccessRepository.findResidentsByFamilyMember(
+        familyMemberId,
+      );
+
+    return accesses.map((access) => this.formatResidentAccess(access));
+  }
+
   async redeemAccessCode({ code, relationship, familyMemberId }) {
     const accessCode = await ResidentAccessCodeRepository.findByCode(code);
 
@@ -115,6 +124,17 @@ class ResidentFamilyAccessService {
         "USED_ACCESS_CODE",
       );
     }
+  }
+
+  formatResidentAccess(access) {
+    return {
+      ...access.resident,
+      access: {
+        id: access.id,
+        relationship: access.relationship,
+        createdAt: access.createdAt,
+      },
+    };
   }
 }
 

@@ -1,6 +1,21 @@
 import ResidentFamilyAccessService from "./ResidentFamilyAccessService.js";
 
 class ResidentFamilyAccessController {
+  listResidents = async (req, res, next) => {
+    try {
+      const { familyMemberId } = req.familyMember;
+
+      const residents =
+        await ResidentFamilyAccessService.listResidentsForFamilyMember(
+          familyMemberId,
+        );
+
+      return res.status(200).json(residents);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   redeemAccessCode = async (req, res, next) => {
     try {
       const { code, relationship } = req.body;
