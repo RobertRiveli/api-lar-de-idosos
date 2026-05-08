@@ -13,6 +13,29 @@ class ResidentFamilyAccessService {
     return accesses.map((access) => this.formatResidentAccess(access));
   }
 
+  async getResidentDetailsForFamilyMember(familyMemberId, residentId) {
+    const activeAccess = await ResidentFamilyAccessRepository.findActiveAccess(
+      familyMemberId,
+      residentId,
+    );
+
+    if (!activeAccess) {
+      throw new AppError(
+        "Você não possui acesso a este residente",
+        403,
+        "RESIDENT_ACCESS_FORBIDDEN",
+      );
+    }
+
+    const access =
+      await ResidentFamilyAccessRepository.findResidentDetailsForFamilyMember(
+        familyMemberId,
+        residentId,
+      );
+
+    return this.formatResidentAccess(access);
+  }
+
   async redeemAccessCode({ code, relationship, familyMemberId }) {
     const accessCode = await ResidentAccessCodeRepository.findByCode(code);
 

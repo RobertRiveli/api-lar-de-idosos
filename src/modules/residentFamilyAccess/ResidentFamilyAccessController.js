@@ -16,6 +16,23 @@ class ResidentFamilyAccessController {
     }
   };
 
+  getResidentDetails = async (req, res, next) => {
+    try {
+      const { familyMemberId } = req.familyMember;
+      const { residentId } = req.params;
+
+      const resident =
+        await ResidentFamilyAccessService.getResidentDetailsForFamilyMember(
+          familyMemberId,
+          residentId,
+        );
+
+      return res.status(200).json(resident);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   redeemAccessCode = async (req, res, next) => {
     try {
       const { code, relationship } = req.body;

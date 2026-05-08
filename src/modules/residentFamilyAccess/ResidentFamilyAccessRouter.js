@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { familyAuthMiddleware } from "../../middlewares/familyAuthMiddleware.js";
 import ResidentFamilyAccessController from "./ResidentFamilyAccessController.js";
-import { validateRedeemResidentAccessCode } from "./ResidentFamilyAccessSchema.js";
+import {
+  validateRedeemResidentAccessCode,
+  validateResidentFamilyAccessParams,
+} from "./ResidentFamilyAccessSchema.js";
 
 class ResidentFamilyAccessRouter {
   constructor() {
@@ -14,6 +17,13 @@ class ResidentFamilyAccessRouter {
       "/residents",
       familyAuthMiddleware,
       ResidentFamilyAccessController.listResidents,
+    );
+
+    this.router.get(
+      "/residents/:residentId",
+      familyAuthMiddleware,
+      validateResidentFamilyAccessParams,
+      ResidentFamilyAccessController.getResidentDetails,
     );
 
     this.router.post(

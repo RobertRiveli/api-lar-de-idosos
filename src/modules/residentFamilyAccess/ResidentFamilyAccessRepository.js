@@ -12,6 +12,18 @@ class ResidentFamilyAccessRepository {
     createdAt: true,
   };
 
+  residentDetailsSelect = {
+    id: true,
+    fullName: true,
+    birthDate: true,
+    gender: true,
+    bloodType: true,
+    admissionDate: true,
+    status: true,
+    createdAt: true,
+    updatedAt: true,
+  };
+
   async create(data, db = prisma) {
     return await db.residentFamilyAccess.create({
       data,
@@ -58,6 +70,38 @@ class ResidentFamilyAccessRepository {
         residentId_familyMemberId: {
           residentId,
           familyMemberId,
+        },
+      },
+    });
+  }
+
+  async findActiveAccess(familyMemberId, residentId, db = prisma) {
+    return await db.residentFamilyAccess.findFirst({
+      where: {
+        familyMemberId,
+        residentId,
+        isActive: true,
+      },
+    });
+  }
+
+  async findResidentDetailsForFamilyMember(
+    familyMemberId,
+    residentId,
+    db = prisma,
+  ) {
+    return await db.residentFamilyAccess.findFirst({
+      where: {
+        familyMemberId,
+        residentId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        relationship: true,
+        createdAt: true,
+        resident: {
+          select: this.residentDetailsSelect,
         },
       },
     });

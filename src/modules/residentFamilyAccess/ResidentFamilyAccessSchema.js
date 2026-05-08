@@ -19,6 +19,10 @@ export const redeemResidentAccessCodeSchema = z.object({
     }),
 });
 
+export const residentFamilyAccessParamsSchema = z.object({
+  residentId: z.uuid("residentId deve ser um UUID válido"),
+});
+
 export const validateRedeemResidentAccessCode = (req, res, next) => {
   const validation = redeemResidentAccessCodeSchema.safeParse(req.body);
 
@@ -30,5 +34,19 @@ export const validateRedeemResidentAccessCode = (req, res, next) => {
   }
 
   req.body = validation.data;
+  return next();
+};
+
+export const validateResidentFamilyAccessParams = (req, res, next) => {
+  const validation = residentFamilyAccessParamsSchema.safeParse(req.params);
+
+  if (!validation.success) {
+    const firstIssue = validation.error.issues[0];
+    const field = firstIssue.path[0];
+
+    return next(new ValidationError(field, firstIssue.message));
+  }
+
+  req.params = validation.data;
   return next();
 };
