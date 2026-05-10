@@ -137,12 +137,12 @@ Contrato atual da API:
 | `birthDate`     | string | Sim         | Data no formato `DD-MM-YYYY`.                        |
 | `gender`        | string | Nao         | Texto livre. Use valores padronizados no frontend.   |
 | `bloodType`     | string | Nao         | Texto livre. Use valores padronizados no frontend.   |
-| `admissionDate` | string | Sim         | Data de admissao preenchida.                         |
+| `admissionDate` | string | Sim         | Data no formato `DD-MM-YYYY`.                        |
 | `status`        | string | Nao         | Quando omitido, o banco usa `active` como padrao.    |
 
 ### Observacao sobre datas
 
-A validacao atual exige `birthDate` no formato `DD-MM-YYYY`. Para manter o frontend alinhado ao contrato da API, envie esse formato.
+A validacao atual exige `birthDate` e `admissionDate` no formato `DD-MM-YYYY`. O backend interpreta esse formato explicitamente e salva as datas como `DateTime`.
 
 Na resposta, as datas voltam em formato ISO, por exemplo:
 
@@ -287,11 +287,14 @@ Mensagens possiveis:
 | Campo           | Mensagem possivel                                       |
 | --------------- | ------------------------------------------------------- |
 | `fullName`      | `O nome deve ter pelo menos 3 caracteres`               |
-| `fullName`      | `O nome deve ter no maximo 160 caracteres`              |
-| `cpf`           | `CPF invalido`                                          |
-| `birthDate`     | `A data de nascimento e obrigatoria`                    |
+| `fullName`      | `O nome deve ter no máximo 160 caracteres`              |
+| `cpf`           | `CPF inválido`                                          |
+| `birthDate`     | `A data de nascimento é obrigatória`                    |
 | `birthDate`     | `A data de nascimento deve estar no formato DD-MM-YYYY` |
-| `admissionDate` | `A data de admissao e obrigatoria`                      |
+| `birthDate`     | `A data de nascimento é inválida`                       |
+| `admissionDate` | `A data de admissão é obrigatória`                      |
+| `admissionDate` | `A data de admissão deve estar no formato DD-MM-YYYY`   |
+| `admissionDate` | `A data de admissão é inválida`                         |
 
 #### CPF ja cadastrado
 
@@ -346,6 +349,22 @@ Use esta funcao para montar a listagem de residentes da empresa do usuario auten
 ```http
 GET /residents
 Authorization: Bearer <token>
+```
+
+### Permissao
+
+Somente usuarios com `role` igual a `admin` podem listar residentes por esta rota.
+
+Se um usuario sem permissao tentar listar, a API retorna:
+
+```http
+403 Forbidden
+```
+
+```json
+{
+  "message": "Você não tem permissão para acessar este recurso"
+}
 ```
 
 ### Comportamento da API
@@ -492,7 +511,7 @@ A API busca o residente pelo `id`, mas restringe a consulta para:
 - residentes da empresa do usuario autenticado;
 - residentes com `status` igual a `active`.
 
-Se o residente existir em outra empresa, estiver inativo ou nao existir, a resposta sera `Residente nao encontrado`.
+Se o residente existir em outra empresa, estiver inativo ou nao existir, a resposta sera `404 Not Found` com `errorType: "NOT_FOUND"`.
 
 ### Exemplo com fetch
 
@@ -564,7 +583,7 @@ Body:
 Status HTTP:
 
 ```http
-400 Bad Request
+404 Not Found
 ```
 
 Body:
@@ -572,11 +591,8 @@ Body:
 ```json
 {
   "success": false,
-  "message": "Dados de entrada invalidos",
-  "errors": {
-    "resident": "Residente nao encontrado"
-  },
-  "errorType": "VALIDATION_ERROR"
+  "message": "Residente não encontrado",
+  "errorType": "NOT_FOUND"
 }
 ```
 
@@ -612,7 +628,7 @@ A API primeiro valida se o residente existe, esta ativo e pertence a empresa do 
 - `prescriptions`: prescricoes ativas do residente;
 - `administrations`: administracoes de medicamentos do residente.
 
-Se o residente existir em outra empresa, estiver inativo ou nao existir, a resposta sera `Residente nao encontrado`.
+Se o residente existir em outra empresa, estiver inativo ou nao existir, a resposta sera `404 Not Found` com `errorType: "NOT_FOUND"`.
 
 ### Exemplo com fetch
 
@@ -951,12 +967,13 @@ function handleResidentApiError(error) {
 - Enviar `Authorization: Bearer <token>` em todas as chamadas.
 - Nao enviar `companyId`; a API usa a empresa do token.
 - Exibir botao de cadastro apenas para usuarios `admin`.
+- Carregar `GET /residents` apenas para usuarios `admin`.
 - Aplicar mascara visual de CPF, mas enviar apenas numeros.
-- Enviar `birthDate` no formato `DD-MM-YYYY`.
+- Enviar `birthDate` e `admissionDate` no formato `DD-MM-YYYY`.
 - Tratar `role` como erro geral do formulario.
 - Tratar erros de `token` removendo a sessao local e redirecionando para login.
 - Na listagem, preparar estado vazio quando `residents` vier como array vazio.
-- Na tela de detalhes, tratar `resident: "Residente nao encontrado"` como pagina nao encontrada ou aviso de registro indisponivel.
+- Na tela de detalhes, tratar `errorType: "NOT_FOUND"` como pagina nao encontrada ou aviso de registro indisponivel.
 - No overview, preparar estado vazio para `healthConditions`, `prescriptions` e `administrations`.
 
 ## Modelo de estado sugerido

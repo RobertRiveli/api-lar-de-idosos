@@ -24,8 +24,8 @@ class ResidentService {
     const data = {
       ...residentData,
       companyId,
-      birthDate: new Date(residentData.birthDate),
-      admissionDate: new Date(residentData.admissionDate),
+      birthDate: this.parseDate(residentData.birthDate),
+      admissionDate: this.parseDate(residentData.admissionDate),
     };
 
     const resident = await ResidentRepository.create(data);
@@ -90,6 +90,11 @@ class ResidentService {
 
       throw new ValidationError(field, firstIssue.message);
     }
+  }
+
+  parseDate(dateString) {
+    const [day, month, year] = dateString.split("-").map(Number);
+    return new Date(Date.UTC(year, month - 1, day));
   }
 
   async checkConflict(cpf, companyId) {
