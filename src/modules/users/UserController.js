@@ -26,6 +26,21 @@ class UserController {
       next(error);
     }
   };
+
+  getAllByCompany = async (req, res, next) => {
+    try {
+      const { companyId } = req.user;
+
+      const users = await UserService.getManyByCompany(companyId);
+
+      return res.status(200).json({
+        success: true,
+        users,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default new UserController();

@@ -3,8 +3,10 @@ import userSchema from "../../validators/userValidation.js";
 import { prisma } from "../../database/prisma.js";
 import ConflictError from "../../errors/ConflictError.js";
 import ValidationError from "../../errors/ValidationError.js";
+import NotFoundError from "../../errors/NotFoundError.js";
 import { validatePhone } from "../../utils/phoneValidator.js";
 import UserRepository from "./UserRepository.js";
+import CompanyService from "../companies/CompanyService.js";
 
 class UserService {
   registerUser = async (userData, userRole, companyId) => {
@@ -75,6 +77,18 @@ class UserService {
     }
 
     return user;
+  };
+
+  getManyByCompany = async (companyId) => {
+    const companyExists = CompanyService.companyExists(companyId);
+
+    if (!companyExists) {
+      throw new NotFoundError("Empresa não existe ou está inativa");
+    }
+
+    const users = UserRepository.findManyByCompanyId(companyId);
+
+    return users;
   };
 
   checkConflict = async (userData) => {
