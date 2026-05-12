@@ -58,6 +58,13 @@ class ResidentRouter {
       validateCreateResidentAccessCode,
       ResidentAccessCodeController.create,
     );
+
+    this.router.delete(
+      "/:residentId",
+      authMiddleware,
+      authorizeRoles("admin"),
+      ResidentController.delete,
+    );
   }
 }
 

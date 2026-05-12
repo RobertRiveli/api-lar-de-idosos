@@ -109,5 +109,30 @@ class ResidentService {
       throw new ConflictError("cpf", "CPF já cadastrado");
     }
   }
+
+  async deactivate(id, companyId, userRole) {
+    if (userRole !== "admin") {
+      throw new ValidationError(
+        "role",
+        "Apenas administradores podem desativar residentes",
+      );
+    }
+
+    const resident = await this.exists(id, companyId);
+
+    if (!resident) {
+      throw new NotFoundError("Residente não encontrado");
+    }
+
+    if (resident.companyId !== companyId) {
+      return;
+    }
+
+    if (resident.status === "inactive") {
+      throw new ConflictError("resident", "Residente já está inativo");
+    }
+
+    return await ResidentRepository.deactivate(id, companyId);
+  }
 }
 export default new ResidentService();

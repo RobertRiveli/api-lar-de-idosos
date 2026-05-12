@@ -25,5 +25,15 @@ class ResidentRepository {
       where: { cpf, companyId, status: "active" },
     });
   }
+
+  async deactivate(id, companyId) {
+    return await prisma.resident.update({
+      where: { id, companyId },
+      data: {
+        status: "inactive",
+        updatedAt: new Date(),
+      },
+    });
+  }
 }
 export default new ResidentRepository();

@@ -66,6 +66,28 @@ class ResidentController {
       next(error);
     }
   };
+
+  delete = async (req, res, next) => {
+    try {
+      const { residentId } = req.params;
+      const { companyId, role } = req.user;
+
+      const resident = await ResidentService.deactivate(
+        residentId,
+        companyId,
+        role,
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Residente excluído com sucesso",
+
+        resident,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default new ResidentController();
