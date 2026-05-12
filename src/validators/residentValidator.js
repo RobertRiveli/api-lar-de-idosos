@@ -52,4 +52,35 @@ const residentSchema = z.object({
   status: z.string().optional(),
 });
 
+const updateResidentSchema = z
+  .object({
+    fullName: fullNameSchema.optional(),
+    cpf: z
+      .string()
+      .optional()
+      .refine((cpf) => !cpf || isCPF(cpf), {
+        message: "CPF inválido",
+      }),
+    birthDate: dateSchema(
+      "A data de nascimento deve estar no formato DD-MM-YYYY",
+      "A data de nascimento deve estar no formato DD-MM-YYYY",
+      "A data de nascimento é inválida",
+    ).optional(),
+    admissionDate: dateSchema(
+      "A data de admissão deve estar no formato DD-MM-YYYY",
+      "A data de admissão deve estar no formato DD-MM-YYYY",
+      "A data de admissão é inválida",
+    ).optional(),
+    gender: z.enum(["M", "F", "other"]).optional(),
+    bloodType: z
+      .enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"])
+      .optional(),
+    status: z.enum(["active", "inactive", "deceased", "discharged"]).optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Pelo menos um campo deve ser enviado para atualização",
+  });
+
 export default residentSchema;
+export { updateResidentSchema };

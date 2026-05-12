@@ -1,6 +1,8 @@
 import ResidentRepository from "./ResidentRepository.js";
 import ValidationError from "../../errors/ValidationError.js";
-import residentSchema from "../../validators/residentValidator.js";
+import residentSchema, {
+  updateResidentSchema,
+} from "../../validators/residentValidator.js";
 import NotFoundError from "../../errors/NotFoundError.js";
 import ConflictError from "../../errors/ConflictError.js";
 import CompanyService from "../companies/CompanyService.js";
@@ -133,6 +135,72 @@ class ResidentService {
     }
 
     return await ResidentRepository.deactivate(id, companyId);
+  }
+
+  async updateResident(residentId, companyId, userRole, residentData) {
+    if (userRole !== "admin") {
+      throw new ValidationError(
+        "role",
+        "Apenas administradores podem editar residentes",
+      );
+    }
+
+    const validData = this.validateResidentUpdateData(residentData);
+
+    const residentExists = await ResidentRepository.findByIdAndCompanyId(
+      residentId,
+      companyId,
+    );
+
+    if (!residentExists) {
+      throw new NotFoundError("Residente não encontrado");
+    }
+
+    if (validData.cpf) {
+      const duplicate = await ResidentRepository.findByCpfAndCompanyId(
+        validData.cpf,
+        companyId,
+      );
+
+      if (duplicate && duplicate.id !== residentId) {
+        throw new ConflictError("cpf", "CPF já cadastrado");
+      }
+    }
+
+    const data = { ...validData };
+
+    if (data.birthDate) {
+      data.birthDate = this.parseDate(data.birthDate);
+    }
+
+    if (data.admissionDate) {
+      data.admissionDate = this.parseDate(data.admissionDate);
+    }
+
+    const updatedResident = await ResidentRepository.update(
+      residentId,
+      companyId,
+      data,
+    );
+
+    if (!updatedResident) {
+      throw new NotFoundError("Residente não encontrado");
+    }
+
+    return updatedResident;
+  }
+
+  validateResidentUpdateData(residentData) {
+    const validation = updateResidentSchema.safeParse(residentData);
+
+    if (!validation.success) {
+      const firstIssue = validation.error.issues[0];
+      const field = firstIssue.path[0];
+
+      throw new ValidationError(field, firstIssue.message);
+    }
+
+    return validation.data;
   }
 }
 export default new ResidentService();

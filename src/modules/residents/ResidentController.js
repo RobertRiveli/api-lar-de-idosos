@@ -67,6 +67,29 @@ class ResidentController {
     }
   };
 
+  update = async (req, res, next) => {
+    try {
+      const { residentId } = req.params;
+      const { companyId, role } = req.user;
+      const residentData = req.body;
+
+      const resident = await ResidentService.updateResident(
+        residentId,
+        companyId,
+        role,
+        residentData,
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Residente atualizado com sucesso",
+        resident,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   delete = async (req, res, next) => {
     try {
       const { residentId } = req.params;

@@ -21,6 +21,12 @@ class ResidentRouter {
       sanitizeResidentData,
       ResidentController.create,
     );
+    this.router.patch(
+      "/:residentId",
+      authMiddleware,
+      authorizeRoles("admin"),
+      ResidentController.update,
+    );
     this.router.get(
       "/",
       authMiddleware,

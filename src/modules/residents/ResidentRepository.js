@@ -20,6 +20,12 @@ class ResidentRepository {
     });
   }
 
+  async findByIdAndCompanyId(id, companyId) {
+    return await prisma.resident.findFirst({
+      where: { id, companyId },
+    });
+  }
+
   async findByCpfAndCompanyId(cpf, companyId) {
     return await prisma.resident.findFirst({
       where: { cpf, companyId, status: "active" },
@@ -28,11 +34,23 @@ class ResidentRepository {
 
   async deactivate(id, companyId) {
     return await prisma.resident.update({
-      where: { id, companyId },
+      where: { id },
       data: {
         status: "inactive",
         updatedAt: new Date(),
       },
+    });
+  }
+
+  async update(residentId, companyId, data) {
+    const resident = await this.findByIdAndCompanyId(residentId, companyId);
+    if (!resident) {
+      return null;
+    }
+
+    return await prisma.resident.update({
+      where: { id: residentId },
+      data,
     });
   }
 }
