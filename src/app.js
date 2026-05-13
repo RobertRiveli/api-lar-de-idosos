@@ -13,8 +13,8 @@ import ResidentFamilyAccessRouter from "./modules/residentFamilyAccess/ResidentF
 import { errorHandler } from "./middlewares/errorHandler.js";
 import cors from "cors";
 import ResidentConditionRouter from "./modules/residents/residentConditions/ResidentConditionRouter.js";
+import TestController from "./modules/tests/TestController.js";
 
-import TestController from "./controllers/TestController.js";
 class App {
   constructor() {
     this.app = express();
@@ -42,9 +42,9 @@ class App {
     this.app.use("/resident-conditions", ResidentConditionRouter);
     this.app.use("/family-members", FamilyMemberRouter);
     this.app.use("/family-members", ResidentFamilyAccessRouter);
-    this.app.use("/companies", companyRouter);
-    this.app.use("/users", userRouter);
-    this.app.use("/auth", authRouter);
+    this.app.use("/companies", CompanyRouter);
+    this.app.use("/users", UserRouter);
+    this.app.use("/auth", AuthRouter);
     this.app.use("/test", TestController.test);
   }
 
