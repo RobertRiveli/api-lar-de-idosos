@@ -11,7 +11,7 @@ class ResidentAccessCodeService {
       throw new NotFoundError("Empresa relacionada não encontrada");
     }
 
-    await ResidentService.exists(residentId);
+    await ResidentService.exists(residentId, companyId);
 
     const code = this.generateAccessCode();
     const today = new Date();
@@ -28,6 +28,32 @@ class ResidentAccessCodeService {
     const result = await ResidentAccessCodeRepository.create(data);
 
     return result;
+  }
+
+  async listActiveByResident(residentId, companyId) {
+    await ResidentService.exists(residentId, companyId);
+
+    const codes = await ResidentAccessCodeRepository.findActiveByResidentAndCompany(
+      residentId,
+      companyId,
+    );
+
+    return codes.map((code) => this.formatAccessCode(code));
+  }
+
+  formatAccessCode(accessCode) {
+    return {
+      id: accessCode.id,
+      residentId: accessCode.residentId,
+      code: accessCode.code,
+      expiresAt: accessCode.expiresAt,
+      maxUses: accessCode.maxUses,
+      usesCount: accessCode.usesCount,
+      remainingUses: accessCode.maxUses - accessCode.usesCount,
+      isActive: accessCode.isActive,
+      createdAt: accessCode.createdAt,
+      updatedAt: accessCode.updatedAt,
+    };
   }
 
   generateAccessCode() {

@@ -64,6 +64,12 @@ class ResidentRouter {
       validateCreateResidentAccessCode,
       ResidentAccessCodeController.create,
     );
+    this.router.get(
+      "/:residentId/access-codes",
+      authMiddleware,
+      authorizeRoles("admin"),
+      ResidentAccessCodeController.listActiveByResident,
+    );
 
     this.router.delete(
       "/:residentId",

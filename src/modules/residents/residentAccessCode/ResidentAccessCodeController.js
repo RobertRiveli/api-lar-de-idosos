@@ -1,6 +1,25 @@
 import ResidentAccessCodeService from "./ResidentAccessCodeService.js";
 
 class ResidentAccessCodeController {
+  listActiveByResident = async (req, res, next) => {
+    try {
+      const { residentId } = req.params;
+      const companyId = req.user.companyId;
+
+      const accessCodes = await ResidentAccessCodeService.listActiveByResident(
+        residentId,
+        companyId,
+      );
+
+      res.status(200).json({
+        success: true,
+        accessCodes,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   create = async (req, res, next) => {
     try {
       const { residentId } = req.params;

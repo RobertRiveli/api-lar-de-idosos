@@ -1204,6 +1204,199 @@ const initialCreateAccessCodeForm = {
 };
 ```
 
+## Listagem de códigos ativos do residente
+
+Use esta rota quando a tela administrativa precisar mostrar os códigos de acesso ainda utilizáveis de um residente, por exemplo em uma aba da tela de detalhes ou junto da página de overview.
+
+Essa listagem não faz parte do endpoint de overview do residente. Como códigos de acesso são dados sensíveis e a overview também pode ser usada por usuários que não são administradores, o frontend deve buscar os códigos separadamente apenas quando o usuário interno tiver papel `admin`.
+
+## Endpoint de listagem
+
+```http
+GET /residents/:residentId/access-codes
+Authorization: Bearer <internalAccessToken>
+```
+
+Exemplo de base URL em ambiente local:
+
+```txt
+http://localhost:<PORT>/residents/<residentId>/access-codes
+```
+
+## Autenticação da listagem
+
+Este endpoint exige token de usuário interno e papel `admin`.
+
+Use o token retornado em `POST /auth`, não o token retornado em `POST /auth/family`.
+
+## Comportamento da listagem
+
+A API valida se o residente existe, está ativo e pertence à empresa do usuário autenticado.
+
+A resposta retorna somente códigos que ainda podem ser usados:
+
+- `isActive` igual a `true`;
+- `expiresAt` maior que a data e hora atual;
+- `usesCount` menor que `maxUses`.
+
+Códigos expirados, inativos ou que já atingiram o limite de usos não aparecem nessa listagem.
+
+## Exemplo de listagem com fetch
+
+```js
+async function listResidentAccessCodes(residentId) {
+  const token = localStorage.getItem("internalAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão administrativa não encontrada" },
+    };
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/residents/${residentId}/access-codes`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data.accessCodes;
+}
+```
+
+## Exemplo de listagem com Axios
+
+```js
+export async function listResidentAccessCodes(residentId) {
+  const token = localStorage.getItem("internalAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão administrativa não encontrada" },
+    };
+  }
+
+  const { data } = await api.get(`/residents/${residentId}/access-codes`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return data.accessCodes;
+}
+```
+
+## Resposta de sucesso da listagem
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "success": true,
+  "accessCodes": [
+    {
+      "id": "uuid-do-codigo",
+      "residentId": "4be87bd3-7966-451f-bc3d-76f9edc034f5",
+      "code": "A8K2P9",
+      "expiresAt": "2026-05-08T00:00:00.000Z",
+      "maxUses": 3,
+      "usesCount": 1,
+      "remainingUses": 2,
+      "isActive": true,
+      "createdAt": "2026-05-07T00:00:00.000Z",
+      "updatedAt": "2026-05-07T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+Campos principais de cada item:
+
+| Campo           | Descrição                                               |
+| --------------- | ------------------------------------------------------- |
+| `id`            | ID do código de acesso.                                 |
+| `residentId`    | ID do residente relacionado ao código.                  |
+| `code`          | Código que pode ser compartilhado com o familiar.       |
+| `expiresAt`     | Data e hora de expiração do código.                     |
+| `maxUses`       | Quantidade máxima de resgates permitidos.               |
+| `usesCount`     | Quantidade de vezes que o código já foi resgatado.      |
+| `remainingUses` | Quantidade de resgates restantes.                       |
+| `isActive`      | Indica se o código está ativo.                          |
+| `createdAt`     | Data de criação do código.                              |
+| `updatedAt`     | Data da última atualização do código.                   |
+
+## Uso junto da overview
+
+Na tela administrativa de detalhes do residente, carregue a overview e os códigos em chamadas separadas:
+
+```js
+async function loadAdminResidentDetails(residentId) {
+  const [overview, accessCodes] = await Promise.all([
+    getResidentOverview(residentId),
+    listResidentAccessCodes(residentId),
+  ]);
+
+  return {
+    overview,
+    accessCodes,
+  };
+}
+```
+
+Se o usuário autenticado não for `admin`, não chame `GET /residents/:residentId/access-codes`.
+
+## Erros da listagem
+
+### Usuário sem permissão de administrador
+
+Status HTTP:
+
+```http
+403 Forbidden
+```
+
+Body:
+
+```json
+{
+  "message": "Você não tem permissão para acessar este recurso"
+}
+```
+
+### Residente não encontrado
+
+Status HTTP:
+
+```http
+404 Not Found
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Residente não encontrado",
+  "errorType": "NOT_FOUND"
+}
+```
+
 ## Resgate de código de acesso do residente
 
 Depois que o familiar faz login, ele pode informar um código de acesso gerado pelo administrador para se vincular a um residente.
