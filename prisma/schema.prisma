@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,43 +7,264 @@ datasource db {
 }
 
 model Company {
-  id         String   @id @default(uuid())
-  legalName String   @unique @map("legal_name")
-  tradeName String @map("trade_name")
-  taxId     String   @unique @map("tax_id")
-  email      String   @unique 
-  phone      String? 
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  users      User[]   
+  id                        String                     @id @default(uuid())
+  legalName                 String                     @unique @map("legal_name")
+  tradeName                 String                     @map("trade_name")
+  taxId                     String                     @unique @map("tax_id")
+  email                     String                     @unique
+  phone                     String?
+  isActive                  Boolean                    @default(true) @map("is_active")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  users                     User[]
+  residents                 Resident[]
+  medications               Medication[]
+  prescriptions             Prescription[]
+  medicationAdministrations MedicationAdministration[]
+  residentAccessCode        ResidentAccessCode[]
 
-  @@map("companies")  
+  @@map("companies")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  companyId String  @map("company_id") 
+  id        String  @id @default(uuid())
+  companyId String  @map("company_id")
   company   Company @relation(fields: [companyId], references: [id])
-  
-  email     String   
-  fullName String   @map("full_name")
-  phone String?
-  passwordHash  String @map("password_hash")
-  cpf String @unique
 
-  role Role @default(caregiver)
-  isActive  Boolean  @default(true) @map("is_active")
-  
+  email        String
+  fullName     String  @map("full_name")
+  phone        String?
+  passwordHash String  @map("password_hash")
+  cpf          String  @unique
+
+  role     Role    @default(caregiver)
+  isActive Boolean @default(true) @map("is_active")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  medicationAdministrations MedicationAdministration[]
 
   @@unique([email, companyId])
   @@index([companyId])
   @@map("users")
 }
 
+model FamilyMember {
+  id           String   @id @default(uuid())
+  fullName     String   @map("full_name")
+  email        String   @unique
+  phone        String?
+  cpf          String   @unique
+  passwordHash String   @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  residentAccesses ResidentFamilyAccess[]
+
+  @@map("family_members")
+}
+
 enum Role {
   admin
   caregiver
+}
+
+model Resident {
+  id        String  @id @default(uuid())
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
+
+  fullName                  String                     @map("full_name")
+  cpf                       String?                    @unique
+  birthDate                 DateTime                   @map("birth_date")
+  gender                    String?
+  bloodType                 String?                    @map("blood_type")
+  admissionDate             DateTime                   @map("admission_date")
+  status                    String?                    @default("active")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  prescriptions             Prescription[]
+  medicationAdministrations MedicationAdministration[]
+  residentConditions        ResidentCondition[]
+  acessCodes                ResidentAccessCode[]
+  familyAccesses            ResidentFamilyAccess[]
+
+  @@map("residents")
+}
+
+model Medication {
+  id        String  @id @default(uuid())
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
+
+  genericName   String         @map("generic_name")
+  brandName     String?        @map("brand_name")
+  form          String
+  strength      String?
+  isActive      Boolean        @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  prescriptions Prescription[]
+
+  @@unique([genericName, companyId, strength, form])
+  @@index([companyId])
+  @@map("medications")
+}
+
+model MeasurementUnit {
+  id           String  @id @default(uuid())
+  name         String  @unique
+  abbreviation String
+  category     String
+  isActive     Boolean @default(true) @map("is_active")
+
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  prescriptions Prescription[]
+
+  @@unique([abbreviation, category])
+  @@map("measurement_units")
+}
+
+model Prescription {
+  id                String          @id @default(uuid())
+  companyId         String          @map("company_id")
+  company           Company         @relation(fields: [companyId], references: [id])
+  residentId        String          @map("resident_id")
+  resident          Resident        @relation(fields: [residentId], references: [id])
+  medicationId      String          @map("medication_id")
+  medication        Medication      @relation(fields: [medicationId], references: [id])
+  measurementUnitId String          @map("measurement_unit_id")
+  measurementUnit   MeasurementUnit @relation(fields: [measurementUnitId], references: [id])
+
+  dosage                    String
+  route                     String
+  frequency                 String
+  intervalHours             Int                        @map("interval_hours")
+  firstScheduledAt          DateTime                   @map("first_scheduled_at")
+  prescribedBy              String                     @map("prescribed_by")
+  startDate                 DateTime                   @map("start_date")
+  endDate                   DateTime?                  @map("end_date")
+  isActive                  Boolean                    @default(true) @map("is_active")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
+  medicationAdministrations MedicationAdministration[]
+
+  @@index([companyId])
+  @@index([residentId])
+  @@index([medicationId])
+  @@index([measurementUnitId])
+  @@index([firstScheduledAt])
+  @@map("prescriptions")
+}
+
+model MedicationAdministration {
+  id             String       @id @default(uuid())
+  companyId      String       @map("company_id")
+  company        Company      @relation(fields: [companyId], references: [id])
+  prescriptionId String       @map("prescription_id")
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  residentId     String       @map("resident_id")
+  resident       Resident     @relation(fields: [residentId], references: [id])
+  caregiverId    String?      @map("caregiver_id")
+  caregiver      User?        @relation(fields: [caregiverId], references: [id])
+
+  scheduledAt    DateTime                       @map("scheduled_at")
+  administeredAt DateTime?                      @map("administered_at")
+  status         MedicationAdministrationStatus @default(pending)
+  notes          String?
+  reason         String?
+  createdAt      DateTime                       @default(now()) @map("created_at")
+  updatedAt      DateTime                       @updatedAt @map("updated_at")
+
+  @@unique([prescriptionId, scheduledAt])
+  @@index([companyId])
+  @@index([prescriptionId])
+  @@index([residentId])
+  @@index([caregiverId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("medication_administrations")
+}
+
+enum MedicationAdministrationStatus {
+  pending
+  administered
+  refused
+  missed
+  canceled
+}
+
+model HealthCondition {
+  id       String @id @default(uuid())
+  name     String @unique
+  category String
+
+  residentConditions ResidentCondition[]
+
+  @@map("health_conditions")
+}
+
+model ResidentCondition {
+  id                String  @id @default(uuid())
+  residentId        String  @map("resident_id")
+  healthConditionId String  @map("health_condition_id")
+  observations      String?
+
+  resident        Resident        @relation(fields: [residentId], references: [id])
+  healthCondition HealthCondition @relation(fields: [healthConditionId], references: [id])
+
+  @@unique([residentId, healthConditionId])
+  @@map("resident_conditions")
+}
+
+model ResidentAccessCode {
+  id         String @id @default(uuid())
+  residentId String @map("resident_id")
+  companyId  String @map("company_id")
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  resident Resident @relation(fields: [residentId], references: [id])
+
+  code      String
+  expiresAt DateTime @map("expires_at")
+  maxUses   Int      @map("max_uses")
+  usesCount Int      @default(0) @map("uses_count")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([code])
+  @@index([residentId])
+  @@index([companyId])
+  @@map("resident_access_code")
+}
+
+model ResidentFamilyAccess {
+  id             String             @id @default(uuid())
+  residentId     String             @map("resident_id")
+  familyMemberId String             @map("family_member_id")
+  relationship   FamilyRelationship
+  isActive       Boolean            @default(true) @map("is_active")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  resident     Resident     @relation(fields: [residentId], references: [id])
+  familyMember FamilyMember @relation(fields: [familyMemberId], references: [id])
+
+  @@unique([residentId, familyMemberId])
+  @@index([residentId])
+  @@index([familyMemberId])
+  @@map("resident_family_access")
+}
+
+enum FamilyRelationship {
+  filho
+  filha
+  neto
+  neta
+  responsavel
+  outro
 }
