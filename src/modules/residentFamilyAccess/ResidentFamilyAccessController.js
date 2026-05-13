@@ -1,6 +1,24 @@
 import ResidentFamilyAccessService from "./ResidentFamilyAccessService.js";
 
 class ResidentFamilyAccessController {
+  listFamilyMembersByResident = async (req, res, next) => {
+    try {
+      const { residentId } = req.params;
+      const { companyId, role } = req.user;
+
+      const familyMembers =
+        await ResidentFamilyAccessService.listFamilyMembersByResident(
+          residentId,
+          companyId,
+          role,
+        );
+
+      return res.status(200).json(familyMembers);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   listResidents = async (req, res, next) => {
     try {
       const { familyMemberId } = req.familyMember;

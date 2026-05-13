@@ -24,6 +24,13 @@ class ResidentFamilyAccessRepository {
     updatedAt: true,
   };
 
+  familyMemberBasicSelect = {
+    id: true,
+    fullName: true,
+    email: true,
+    phone: true,
+  };
+
   async create(data, db = prisma) {
     return await db.residentFamilyAccess.create({
       data,
@@ -34,6 +41,35 @@ class ResidentFamilyAccessRepository {
         relationship: true,
         isActive: true,
         createdAt: true,
+      },
+    });
+  }
+
+  async findActiveFamilyMembersByResident(
+    residentId,
+    companyId,
+    db = prisma,
+  ) {
+    return await db.residentFamilyAccess.findMany({
+      where: {
+        residentId,
+        isActive: true,
+        resident: {
+          companyId,
+        },
+      },
+      select: {
+        id: true,
+        relationship: true,
+        createdAt: true,
+        familyMember: {
+          select: this.familyMemberBasicSelect,
+        },
+      },
+      orderBy: {
+        familyMember: {
+          fullName: "asc",
+        },
       },
     });
   }

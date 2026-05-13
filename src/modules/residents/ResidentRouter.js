@@ -8,6 +8,9 @@ import ResidentConditionController from "./residentConditions/ResidentConditionC
 import ResidentAccessCodeController from "./residentAccessCode/ResidentAccessCodeController.js";
 import { validateCreateResidentAccessCode } from "./residentAccessCode/ResidentAccessCodeSchema.js";
 import authorizeRoles from "../../middlewares/authorizeRoles.js";
+import ResidentFamilyAccessController from "../residentFamilyAccess/ResidentFamilyAccessController.js";
+import { validateResidentFamilyAccessParams } from "../residentFamilyAccess/ResidentFamilyAccessSchema.js";
+
 class ResidentRouter {
   constructor() {
     this.router = Router();
@@ -69,6 +72,13 @@ class ResidentRouter {
       authMiddleware,
       authorizeRoles("admin"),
       ResidentAccessCodeController.listActiveByResident,
+    );
+
+    this.router.get(
+      "/:residentId/family-members",
+      authMiddleware,
+      validateResidentFamilyAccessParams,
+      ResidentFamilyAccessController.listFamilyMembersByResident,
     );
 
     this.router.delete(

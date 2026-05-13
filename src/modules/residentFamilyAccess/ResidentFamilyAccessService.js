@@ -1,9 +1,38 @@
 import { prisma } from "../../database/prisma.js";
 import AppError from "../../errors/AppError.js";
+import NotFoundError from "../../errors/NotFoundError.js";
+import ValidationError from "../../errors/ValidationError.js";
+import ResidentRepository from "../residents/ResidentRepository.js";
 import ResidentAccessCodeRepository from "../residents/residentAccessCode/ResidentAccessCodeRepository.js";
 import ResidentFamilyAccessRepository from "./ResidentFamilyAccessRepository.js";
 
 class ResidentFamilyAccessService {
+  async listFamilyMembersByResident(residentId, companyId, userRole) {
+    if (userRole !== "admin") {
+      throw new ValidationError(
+        "role",
+        "Apenas administradores podem visualizar familiares vinculados",
+      );
+    }
+
+    const resident = await ResidentRepository.findByIdAndCompanyId(
+      residentId,
+      companyId,
+    );
+
+    if (!resident) {
+      throw new NotFoundError("Residente não encontrado");
+    }
+
+    const accesses =
+      await ResidentFamilyAccessRepository.findActiveFamilyMembersByResident(
+        residentId,
+        companyId,
+      );
+
+    return accesses.map((access) => this.formatFamilyMemberAccess(access));
+  }
+
   async listResidentsForFamilyMember(familyMemberId) {
     const accesses =
       await ResidentFamilyAccessRepository.findResidentsByFamilyMember(
@@ -157,6 +186,15 @@ class ResidentFamilyAccessService {
         relationship: access.relationship,
         createdAt: access.createdAt,
       },
+    };
+  }
+
+  formatFamilyMemberAccess(access) {
+    return {
+      accessId: access.id,
+      familyMember: access.familyMember,
+      relationship: access.relationship,
+      createdAt: access.createdAt,
     };
   }
 }

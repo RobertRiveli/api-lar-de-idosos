@@ -12,6 +12,7 @@ Funcionalidades disponiveis:
 - listar residentes ativos da empresa;
 - buscar os detalhes de um residente ativo;
 - obter uma visao geral do residente com dados cadastrais, condicoes, prescricoes e administracoes;
+- listar familiares com acesso ativo a um residente;
 - editar dados de um residente;
 - desativar um residente.
 
@@ -850,6 +851,173 @@ export function ResidentOverviewPage({ residentId }) {
 }
 ```
 
+## Familiares com acesso ao residente
+
+Use esta rota na tela administrativa de detalhes do residente para montar a seção "Familiares com acesso".
+
+### Endpoint
+
+```http
+GET /residents/:residentId/family-members
+Authorization: Bearer <token>
+```
+
+Exemplo:
+
+```txt
+GET /residents/9f2dddc8-51e2-4a6c-9f74-1d4d08f0c5a1/family-members
+```
+
+### Autenticacao e permissao
+
+Este endpoint exige JWT de usuario interno. Use o token retornado em `POST /auth`, nao o token de familiar retornado em `POST /auth/family`.
+
+Somente usuarios com `role` igual a `admin` podem listar os familiares vinculados.
+
+### Parametros de rota
+
+| Parametro    | Tipo   | Obrigatorio | Descricao        |
+| ------------ | ------ | ----------- | ---------------- |
+| `residentId` | string | Sim         | UUID do residente. |
+
+### Comportamento da API
+
+A API usa o `companyId` do JWT do admin autenticado. O frontend nao deve enviar `companyId` no body, query string ou parametros de rota.
+
+A API valida se o residente existe e pertence a empresa do admin. Se o residente nao existir ou pertencer a outra empresa, retorna `404 Not Found`.
+
+A resposta inclui somente vinculos ativos em `ResidentFamilyAccess`, com `isActive` igual a `true`. Se nao houver familiares vinculados, a resposta sera um array vazio.
+
+### Exemplo com fetch
+
+```js
+async function listResidentFamilyMembers(residentId) {
+  const token = localStorage.getItem("accessToken");
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/residents/${residentId}/family-members`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data;
+}
+```
+
+### Exemplo com Axios
+
+```js
+export async function listResidentFamilyMembers(residentId) {
+  const { data } = await api.get(
+    `/residents/${residentId}/family-members`,
+  );
+
+  return data;
+}
+```
+
+### Resposta de sucesso
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+[
+  {
+    "accessId": "uuid-do-vinculo",
+    "familyMember": {
+      "id": "uuid-do-familiar",
+      "fullName": "Maria Silva",
+      "email": "maria@email.com",
+      "phone": "85999999999"
+    },
+    "relationship": "filha",
+    "createdAt": "2026-05-13T12:00:00.000Z"
+  }
+]
+```
+
+Campos retornados por item:
+
+| Campo                   | Descricao                                  |
+| ----------------------- | ------------------------------------------ |
+| `accessId`              | ID do vinculo em `ResidentFamilyAccess`.   |
+| `familyMember.id`       | ID do familiar vinculado.                  |
+| `familyMember.fullName` | Nome completo do familiar.                 |
+| `familyMember.email`    | E-mail do familiar.                        |
+| `familyMember.phone`    | Telefone do familiar, quando cadastrado.   |
+| `relationship`          | Relacionamento informado no resgate.       |
+| `createdAt`             | Data de criacao do vinculo.                |
+
+A resposta nao retorna dados sensiveis do familiar, como `passwordHash`.
+
+### Respostas de erro
+
+Usuario autenticado sem papel `admin`:
+
+```http
+400 Bad Request
+```
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "role": "Apenas administradores podem visualizar familiares vinculados"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+Residente inexistente ou de outra empresa:
+
+```http
+404 Not Found
+```
+
+```json
+{
+  "success": false,
+  "message": "Residente não encontrado",
+  "errorType": "NOT_FOUND"
+}
+```
+
+### Uso junto da overview
+
+Na tela de detalhes do residente, carregue os familiares em uma chamada separada da overview:
+
+```js
+async function loadResidentAdminDetails(residentId) {
+  const [overview, familyMembers] = await Promise.all([
+    getResidentOverview(residentId),
+    listResidentFamilyMembers(residentId),
+  ]);
+
+  return {
+    overview,
+    familyMembers,
+  };
+}
+```
+
+Se o usuario autenticado nao for `admin`, nao chame `GET /residents/:residentId/family-members`.
+
 ## Editar residente
 
 Use esta funcao para atualizar os dados de um residente ja cadastrado.
@@ -1358,6 +1526,7 @@ function handleResidentApiError(error) {
 - Exibir botao de cadastro apenas para usuarios `admin`.
 - Exibir botoes de editar e deletar apenas para usuarios `admin`.
 - Carregar `GET /residents` apenas para usuarios `admin`.
+- Carregar `GET /residents/:residentId/family-members` apenas para usuarios `admin`.
 - Aplicar mascara visual de CPF, mas enviar apenas numeros.
 - Enviar `birthDate` e `admissionDate` no formato `DD-MM-YYYY`.
 - Tratar `role` como erro geral do formulario.
