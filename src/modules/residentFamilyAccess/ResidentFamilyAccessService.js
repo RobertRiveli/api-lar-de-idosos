@@ -144,6 +144,30 @@ class ResidentFamilyAccessService {
     }
   }
 
+  async listCompanyFamilyAccesses(companyId, userRole) {
+    if (userRole !== "admin") {
+      throw new ValidationError(
+        "role",
+        "Apenas administradores podem visualizar vínculos de familiares",
+      );
+    }
+
+    const accesses =
+      await ResidentFamilyAccessRepository.findManyByCompany(companyId);
+
+    return {
+      accesses: accesses.map((access) => ({
+        id: access.id,
+        relationship: access.relationship,
+        isActive: access.isActive,
+        createdAt: access.createdAt,
+        updatedAt: access.updatedAt,
+        resident: access.resident,
+        familyMember: access.familyMember,
+      })),
+    };
+  }
+
   validateAccessCode(accessCode) {
     if (!accessCode) {
       throw new AppError(

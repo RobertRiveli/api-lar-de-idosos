@@ -68,6 +68,21 @@ class ResidentFamilyAccessController {
       next(error);
     }
   };
+
+  listCompanyFamilyAccesses = async (req, res, next) => {
+    try {
+      const { companyId, role } = req.user;
+
+      const result =
+        await ResidentFamilyAccessService.listCompanyFamilyAccesses(
+          companyId,
+          role,
+        );
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default new ResidentFamilyAccessController();

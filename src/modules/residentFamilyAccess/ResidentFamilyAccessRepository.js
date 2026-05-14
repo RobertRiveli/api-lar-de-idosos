@@ -45,11 +45,7 @@ class ResidentFamilyAccessRepository {
     });
   }
 
-  async findActiveFamilyMembersByResident(
-    residentId,
-    companyId,
-    db = prisma,
-  ) {
+  async findActiveFamilyMembersByResident(residentId, companyId, db = prisma) {
     return await db.residentFamilyAccess.findMany({
       where: {
         residentId,
@@ -96,11 +92,7 @@ class ResidentFamilyAccessRepository {
     });
   }
 
-  async findByResidentAndFamilyMember(
-    residentId,
-    familyMemberId,
-    db = prisma,
-  ) {
+  async findByResidentAndFamilyMember(residentId, familyMemberId, db = prisma) {
     return await db.residentFamilyAccess.findUnique({
       where: {
         residentId_familyMemberId: {
@@ -139,6 +131,43 @@ class ResidentFamilyAccessRepository {
         resident: {
           select: this.residentDetailsSelect,
         },
+      },
+    });
+  }
+
+  async findManyByCompany(companyId) {
+    return prisma.residentFamilyAccess.findMany({
+      where: {
+        resident: {
+          companyId,
+        },
+      },
+      select: {
+        id: true,
+        relationship: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+
+        resident: {
+          select: {
+            id: true,
+            fullName: true,
+            status: true,
+          },
+        },
+
+        familyMember: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
   }

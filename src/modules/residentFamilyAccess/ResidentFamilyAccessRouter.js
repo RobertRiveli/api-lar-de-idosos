@@ -5,6 +5,7 @@ import {
   validateRedeemResidentAccessCode,
   validateResidentFamilyAccessParams,
 } from "./ResidentFamilyAccessSchema.js";
+import { authMiddleware } from "../../middlewares/authMiddleware.js";
 
 class ResidentFamilyAccessRouter {
   constructor() {
@@ -31,6 +32,12 @@ class ResidentFamilyAccessRouter {
       familyAuthMiddleware,
       validateRedeemResidentAccessCode,
       ResidentFamilyAccessController.redeemAccessCode,
+    );
+
+    this.router.get(
+      "/accesses",
+      authMiddleware,
+      ResidentFamilyAccessController.listCompanyFamilyAccesses,
     );
   }
 }

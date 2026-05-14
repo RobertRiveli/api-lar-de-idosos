@@ -10,6 +10,7 @@ Nesta etapa, a API já permite:
 - autenticar um familiar com e-mail e senha;
 - gerar um JWT próprio para o familiar;
 - gerar um código de acesso para um residente usando um usuário interno `admin`;
+- listar vínculos entre familiares e residentes da empresa autenticada;
 - resgatar um código de acesso de residente usando o JWT do familiar;
 - criar o vínculo entre familiar e residente na tabela `ResidentFamilyAccess`;
 - listar os residentes vinculados ao familiar autenticado;
@@ -1396,6 +1397,206 @@ Body:
   "errorType": "NOT_FOUND"
 }
 ```
+
+## Listagem administrativa de vínculos familiares
+
+Use esta rota quando uma tela administrativa precisar exibir todos os vínculos entre familiares e residentes da empresa autenticada, por exemplo em uma página de acompanhamento geral dos acessos familiares.
+
+Essa listagem é diferente de `GET /residents/:residentId/family-members`: aqui o backend retorna vínculos de todos os residentes da empresa, não apenas de um residente específico.
+
+## Endpoint de listagem de vínculos
+
+```http
+GET /family-members/accesses
+Authorization: Bearer <internalAccessToken>
+```
+
+Exemplo de base URL em ambiente local:
+
+```txt
+http://localhost:<PORT>/family-members/accesses
+```
+
+## Autenticação da listagem de vínculos
+
+Este endpoint exige token de usuário interno. Use o token retornado em `POST /auth`, não o token retornado em `POST /auth/family`.
+
+Somente usuários com `role` igual a `admin` podem listar os vínculos familiares da empresa.
+
+## Comportamento da listagem de vínculos
+
+A API usa o `companyId` do JWT do usuário autenticado. O frontend não deve enviar `companyId` no body, query string ou parâmetros de rota.
+
+A resposta retorna vínculos ativos e inativos encontrados em `ResidentFamilyAccess`, ordenados por `createdAt` de forma decrescente. Se não houver vínculos cadastrados para a empresa, `accesses` será um array vazio.
+
+A resposta não retorna dados sensíveis do familiar, como `passwordHash` ou `cpf`, nem dados clínicos ou completos do residente.
+
+## Exemplo de listagem de vínculos com fetch
+
+```js
+async function listCompanyFamilyAccesses() {
+  const token = localStorage.getItem("internalAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão administrativa não encontrada" },
+    };
+  }
+
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/family-members/accesses`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw data;
+  }
+
+  return data.accesses;
+}
+```
+
+## Exemplo de listagem de vínculos com Axios
+
+```js
+export async function listCompanyFamilyAccesses() {
+  const token = localStorage.getItem("internalAccessToken");
+
+  if (!token) {
+    throw {
+      errorType: "VALIDATION_ERROR",
+      errors: { token: "Sessão administrativa não encontrada" },
+    };
+  }
+
+  const { data } = await api.get("/family-members/accesses", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return data.accesses;
+}
+```
+
+## Resposta de sucesso da listagem de vínculos
+
+Status HTTP:
+
+```http
+200 OK
+```
+
+Body:
+
+```json
+{
+  "accesses": [
+    {
+      "id": "uuid-do-vinculo",
+      "relationship": "filha",
+      "isActive": true,
+      "createdAt": "2026-05-13T12:00:00.000Z",
+      "updatedAt": "2026-05-13T12:00:00.000Z",
+      "resident": {
+        "id": "uuid-do-residente",
+        "fullName": "Jose Silva",
+        "status": "active"
+      },
+      "familyMember": {
+        "id": "uuid-do-familiar",
+        "fullName": "Maria Silva",
+        "email": "maria@email.com",
+        "phone": "85999999999"
+      }
+    }
+  ]
+}
+```
+
+Campos principais de cada item:
+
+| Campo                   | Descrição                                      |
+| ----------------------- | ---------------------------------------------- |
+| `id`                    | ID do vínculo em `ResidentFamilyAccess`.       |
+| `relationship`          | Relacionamento informado no resgate do código. |
+| `isActive`              | Indica se o vínculo ainda está ativo.          |
+| `createdAt`             | Data de criação do vínculo.                    |
+| `updatedAt`             | Data da última atualização do vínculo.         |
+| `resident.id`           | ID do residente vinculado.                     |
+| `resident.fullName`     | Nome completo do residente.                    |
+| `resident.status`       | Status atual do residente.                     |
+| `familyMember.id`       | ID do familiar vinculado.                      |
+| `familyMember.fullName` | Nome completo do familiar.                     |
+| `familyMember.email`    | E-mail do familiar.                            |
+| `familyMember.phone`    | Telefone do familiar, quando cadastrado.       |
+
+## Erros da listagem de vínculos
+
+### Usuário sem permissão de administrador
+
+Status HTTP:
+
+```http
+400 Bad Request
+```
+
+Body:
+
+```json
+{
+  "success": false,
+  "message": "Dados de entrada inválidos",
+  "errors": {
+    "role": "Apenas administradores podem visualizar vínculos de familiares"
+  },
+  "errorType": "VALIDATION_ERROR"
+}
+```
+
+### Token interno ausente ou inválido
+
+Use o mesmo tratamento de sessão das demais rotas protegidas por `authMiddleware`. Quando o token estiver ausente, inválido ou expirado, redirecione o usuário para o login interno.
+
+## Uso recomendado da listagem de vínculos
+
+Sugestão de colunas para uma tabela administrativa:
+
+| Coluna             | Campo usado               |
+| ------------------ | ------------------------- |
+| Residente          | `resident.fullName`       |
+| Familiar           | `familyMember.fullName`   |
+| E-mail do familiar | `familyMember.email`      |
+| Telefone           | `familyMember.phone`      |
+| Relação            | `relationship`            |
+| Status do vínculo  | `isActive`                |
+| Criado em          | `createdAt`               |
+
+Para status visual, trate `isActive` como um booleano de vínculo:
+
+```js
+const accessStatusLabels = {
+  true: "Ativo",
+  false: "Inativo",
+};
+```
+
+## Checklist para a listagem de vínculos
+
+- Exigir login de usuário interno antes de exibir a tela.
+- Permitir a listagem apenas para usuários com papel `admin`.
+- Enviar `Authorization: Bearer <internalAccessToken>`.
+- Não enviar `companyId`.
+- Usar `accesses` como fonte da tabela.
+- Não esperar dados sensíveis do familiar, como `passwordHash` ou `cpf`.
+- Exibir estado vazio quando `accesses` vier como array vazio.
 
 ## Resgate de código de acesso do residente
 
