@@ -10,7 +10,21 @@ class UserRepository {
   }
 
   async findManyByCompanyId(companyId, db = prisma) {
-    return await db.user.findMany({ where: { companyId } });
+    return await db.user.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        companyId: true,
+        email: true,
+        fullName: true,
+        phone: true,
+        cpf: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 }
 

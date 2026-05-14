@@ -79,7 +79,7 @@ Campos do usuario usados pelas rotas deste guia:
 | `createdAt`  | string           | Data de criacao do registro.                        |
 | `updatedAt`  | string           | Data da ultima atualizacao do registro.             |
 
-Observacao importante: no contrato atual, a listagem retorna tambem `passwordHash`. O frontend deve ignorar esse campo, nunca exibir e nunca armazenar em estado global, cache persistente ou local storage.
+Observacao importante: a listagem nao retorna `password`, `passwordHash` ou qualquer outro dado sensivel de autenticacao.
 
 ## Normalizacao recomendada
 
@@ -377,7 +377,7 @@ async function listUsers() {
     throw data;
   }
 
-  return data.users.map(({ passwordHash, ...user }) => user);
+  return data.users;
 }
 ```
 
@@ -387,7 +387,7 @@ async function listUsers() {
 export async function listUsers() {
   const { data } = await api.get("/users");
 
-  return data.users.map(({ passwordHash, ...user }) => user);
+  return data.users;
 }
 ```
 
@@ -411,7 +411,6 @@ Body atual da API:
       "email": "joao@empresa.com",
       "fullName": "Joao Silva",
       "phone": "85999998888",
-      "passwordHash": "$2b$10$hash-da-senha",
       "cpf": "12345678909",
       "role": "caregiver",
       "isActive": true,
@@ -423,14 +422,6 @@ Body atual da API:
 ```
 
 ### Uso recomendado no frontend
-
-Remova `passwordHash` assim que receber a resposta, antes de salvar a lista em estado de tela ou cache:
-
-```js
-const toSafeUser = ({ passwordHash, ...user }) => user;
-
-const users = response.users.map(toSafeUser);
-```
 
 Sugestao de colunas para uma tabela administrativa:
 
@@ -596,4 +587,4 @@ function handleUserApiError(error) {
 - Nao enviar `companyId`; a empresa vem do token.
 - Normalizar `email`, `phone` e `cpf` antes de enviar o cadastro.
 - Tratar conflitos de `email`, `phone` e `cpf` exibindo mensagens por campo.
-- Remover ou ignorar `passwordHash` recebido na listagem.
+- A listagem nao deve receber nem armazenar `passwordHash`.
